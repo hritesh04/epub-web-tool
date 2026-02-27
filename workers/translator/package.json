@@ -1,0 +1,24 @@
+{
+  "name": "chuncker",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsc -b . && node dist/index.js",
+    "build": "tsc -b .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.997.0",
+    "amqplib": "^0.10.9",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.3.1",
+    "googletrans": "^1.0.24"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8"
+  }
+}
