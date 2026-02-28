@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light: warm off-white base, soft blue-gray tints */
+    --background: 210 25% 97%;
+    --foreground: 222 45% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 45% 14%;
+
+    --primary: 198 88% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 25% 92%;
+    --secondary-foreground: 222 45% 20%;
+
+    --muted: 210 20% 94%;
+    --muted-foreground: 218 15% 42%;
+
+    --accent: 198 60% 94%;
+    --accent-foreground: 198 70% 28%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 198 88% 42%;
+
+    /* Extra tint for surfaces (badges, highlights) */
+    --primary-subtle: 198 70% 94%;
+    --radius: 16px;
+  }
+
+  .dark {
+    /* Dark: deep blue-gray with cyan accent, more depth */
+    --background: 222 40% 8%;
+    --foreground: 210 35% 95%;
+
+    --card: 222 38% 11%;
+    --card-foreground: 210 35% 95%;
+
+    --primary: 198 85% 55%;
+    --primary-foreground: 222 50% 6%;
+
+    --secondary: 218 35% 16%;
+    --secondary-foreground: 210 30% 90%;
+
+    --muted: 218 28% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 198 45% 18%;
+    --accent-foreground: 198 80% 70%;
+
+    --destructive: 0 55% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 218 28% 20%;
+    --input: 218 28% 20%;
+    --ring: 198 85% 55%;
+
+    --primary-subtle: 198 40% 16%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    text-rendering: geometricPrecision;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Light: very subtle tint so it's not flat white */
+  :root body {
+    background: linear-gradient(
+      180deg,
+      hsl(210 25% 97%) 0%,
+      hsl(210 22% 98.5%) 50%,
+      hsl(212 30% 96%) 100%
+    );
+  }
+
+  /* Dark: subtle gradient for depth */
+  .dark body {
+    background: linear-gradient(
+      180deg,
+      hsl(222 40% 8%) 0%,
+      hsl(224 38% 9%) 50%,
+      hsl(222 42% 7%) 100%
+    );
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+}
+
