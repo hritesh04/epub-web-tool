@@ -28,43 +28,39 @@ func main(){
 	chunkPublisher := producer.NewChunkPublisher(cfg.Queue)
 	chunker := epub.NewChunker(chunkRepo,uploader)
 
-	msg, err := translationReq.Consume(ctx)
+	msg, data, err := translationReq.Consume(ctx)
 	if err != nil {
 		log.Println("Error consuming from queue:",err)
 		return
 	}
 	
-	processed,err := epubRepo.AlreadyProcessed(ctx,msg.EpubID); 
+	processed,err := epubRepo.AlreadyProcessed(ctx,data.EpubID); 
 	if err != nil {
-		log.Println("Error checking if translation request is proccessed for epub:",msg.EpubID)
+		log.Println("Error checking if translation request is proccessed for epub:",data.EpubID)
+		msg.Requeue(ctx)
 		return
-		// translationReq.Nack(msg)
 	}
 
 	log.Println("Processed ?",processed)
 
 	if processed {
+		msg.Accept(ctx)
 		return
-		// translationReq.Ack(msg)
 	}
 
-	// check if the msg is already proccessed
-	// check db for idenpotency key
-	// if already there then ack and return
-
-	file, err := downloader.Download(ctx,msg.Key)
+	file, err := downloader.Download(ctx,data.Key)
 	if err != nil {
 		log.Println("Error downloading object:",err)
 	}
 
-	chunks, err := chunker.Chunk(ctx,file,msg)
+	chunks, err := chunker.Chunk(ctx,file,data)
 	log.Println("Total chunks:",len(chunks))
 	if err != nil {
 		log.Println("Error chunking epub",file.Name()," error:",err)
 		return
 	}
 
-	if err := epubRepo.UpdateChunkCount(ctx,msg.EpubID,len(chunks)); err != nil {
+	if err := epubRepo.UpdateChunkCount(ctx,data.EpubID,len(chunks)); err != nil {
 		log.Println("Error updating chunk count:",err)
 		return
 	}
@@ -73,6 +69,5 @@ func main(){
 		log.Println("Error publishing translation chunks:",err)
 		return
 	}
-	// translatedReq.Ack(msg)
-	// set idenpotency key to db and ack to queue
+	msg.Accept(ctx)
 }

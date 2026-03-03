@@ -21,7 +21,7 @@ func NewChunkRepository(db *pgxpool.Pool) *ChunkRepository{
 
 func (u *ChunkRepository) EpubChunkStatus(ctx context.Context, epubID string)(int,error){
 	var count int
-	err := u.db.QueryRow(ctx,"SELECT count(status) FROM chunks WHERE epub_id=$1 AND status=$2;",epubID,"completed").Scan(&count)
+	err := u.db.QueryRow(ctx,"SELECT COUNT(DISTINCT chunk_id) FROM chunks WHERE epub_id = $1 AND status = $2;",epubID,"completed").Scan(&count)
 	if err == pgx.ErrNoRows {
 		return 0, nil
 	}
