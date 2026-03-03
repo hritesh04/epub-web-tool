@@ -10,12 +10,12 @@ import (
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
 
-type RabbitMQTranslationReqConsumer struct {
+type RabbitMQZipReqConsumer struct {
 	consumer *rmq.Consumer
 	cfg config.Queue
 }
 
-func NewTranslationReqConsumer(cfg config.Queue) *RabbitMQTranslationReqConsumer {
+func NewRabbitMQZipReqConsumer(cfg config.Queue) *RabbitMQZipReqConsumer {
 	ctx := context.Background()
 	conn,err := rmq.Dial(ctx,cfg.URI(),nil)
 	if err != nil {
@@ -23,30 +23,30 @@ func NewTranslationReqConsumer(cfg config.Queue) *RabbitMQTranslationReqConsumer
 	}
 	management := conn.Management()
 	_, err = management.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
-			Name: cfg.ChunkerQueue,
+			Name: cfg.ZipQueue,
 	})
 	if err != nil {
 		log.Fatal("Error declaring queue:",err)
 	}
-	consumer,err := conn.NewConsumer(ctx,cfg.ChunkerQueue,nil)
+	consumer,err := conn.NewConsumer(ctx,cfg.ZipQueue,nil)
 	if err != nil {
 		log.Fatal("Error creating publisher:",err)
 	}
-	return &RabbitMQTranslationReqConsumer{
+	return &RabbitMQZipReqConsumer{
 		consumer:consumer,
 		cfg: cfg,
 	}
 }
 
-func (r *RabbitMQTranslationReqConsumer) Consume(ctx context.Context)(queue.TranslationMsg,error){
-	var msg queue.TranslationMsg
+func (r *RabbitMQZipReqConsumer) Consume(ctx context.Context)(rmq.IDeliveryContext,queue.CompilationMsg,error){
+	var msg queue.CompilationMsg
 	item, err := r.consumer.Receive(ctx)
 	if err != nil {
-		return msg,err
+		return item,msg,err
 	}
 	if err := json.Unmarshal(item.Message().GetData(),&msg);err != nil {
 		log.Println("Error unmarshalling queue msg:",err)
-		return msg,err
+		return item,msg,err
 	}
-	return msg,nil
+	return item,msg,nil
 }

@@ -3,10 +3,12 @@ package s3
 import (
 	"context"
 	"io"
+	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hritesh04/epub-web-tool/internal/config"
 )
@@ -36,6 +38,7 @@ func NewDownloader(cfg config.S3) *S3Downloader{
 }
 
 func (s *S3Downloader) Download(ctx context.Context,key string)(*os.File,error) {
+	log.Println("Downloading:",key)
 	input := &s3.GetObjectInput{
 		Bucket:&s.cfg.EpubBucket,
 		Key:    aws.String(key),
@@ -61,6 +64,25 @@ func (s *S3Downloader) Download(ctx context.Context,key string)(*os.File,error) 
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
 		return nil,err
 	}
-
 	return file,nil
+}
+
+func (s *S3Downloader) DownloadTranslatedChunks(ctx context.Context,key string, dst string)(error) {
+	log.Println("Downloading prefix:",key,"to:",dst)
+	input := &transfermanager.DownloadDirectoryInput{
+		Bucket:&s.cfg.TranslationBucket,
+		KeyPrefix: &key,
+		Destination: &dst,
+	}
+
+	downloader := transfermanager.New(s.s3)
+	output, err := downloader.DownloadDirectory(ctx,input)
+	if err != nil {
+		return err
+	}
+	if output.ObjectsFailed != 0 {
+		log.Println("Failed to downlaod :",output.ObjectsFailed,"files")
+	}
+	log.Println("Downloaded:",output.ObjectsDownloaded)
+	return nil
 }

@@ -12,3 +12,7 @@ type ChunkMsg struct {
 	ChunkID int `json:"chunkID"`
 	TranslateTo string `json:"translateTo"`
 }
+
+type CompilationMsg struct {
+	EpubID string `json:"epubID"`
+}
