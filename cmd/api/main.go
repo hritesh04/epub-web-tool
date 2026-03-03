@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -76,12 +75,13 @@ func main() {
 	r.POST("/signup",user.SignUp)
 	r.GET("/refresh",user.Refresh)
 	r.Use(AuthMiddleware())
+	r.POST("/signout", user.SignOut)
+	r.GET("/auth", user.Auth)
 	r.GET("/epubs",epub.GetUserEpub)
 	r.DELETE("/epub/:id",epub.DeleteEpub)
 	r.GET("/upload", epub.GetPresignPostURL)
 	r.POST("/upload/:id", epub.FinishUpload)
 	r.GET("/progress/:id",chunk.Progress)
 	r.GET("/download/:id",epub.GetPresignTranslatedEpubLink)
-	port := os.Getenv("PORT")
-	r.Run(":"+port)
+	r.Run(":"+cfg.Port)
 }

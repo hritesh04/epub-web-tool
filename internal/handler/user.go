@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -73,7 +74,7 @@ func (u *UserHandler) SignIn(c *gin.Context){
 		log.Println("Error updating refresh token:",err)
 	}
 	c.SetCookie("epub-tool-access-token",accessToken,15*60,"/","",false,true)
-	c.SetCookie("epub-tool-refresh-token",refreshToken,15*60,"/","",false,true)
+	c.SetCookie("epub-tool-refresh-token",refreshToken,30*24*60*60,"/","",false,true)
 
 	c.JSON(http.StatusOK,gin.H{"success":true,"data":user})
 }
@@ -83,6 +84,17 @@ func (u *UserHandler) SignUp(c *gin.Context){
 	if err := c.ShouldBind(data); err != nil {
 		log.Println("Error unmarshalling request body:",err)
 		c.JSON(http.StatusBadRequest,gin.H{"success":false,"message":"Invalid request payload"})
+		return
+	}
+	emailRegexPattern := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	if valid := emailRegexPattern.MatchString(data.Email); !valid {
+		log.Println("Invalid email address:",data.Email)
+		c.JSON(http.StatusBadRequest,gin.H{"success":false,"message":"Invalid email"})
+		return
+	}
+	if len(data.Password) > 128 {
+		log.Println("Password length is more than 128")
+		c.JSON(http.StatusBadRequest,gin.H{"success":false,"message":"Password should be shorter than 128 characters"})
 		return
 	}
 	existingUser, err := u.user.GetByEmail(c.Request.Context(),data.Email)
@@ -127,7 +139,7 @@ func (u *UserHandler) SignUp(c *gin.Context){
 		log.Println("Error updating refresh token:",err)
 	}
 	c.SetCookie("epub-tool-access-token",accessToken,15*60,"/","",false,true)
-	c.SetCookie("epub-tool-refresh-token",refreshToken,15*60,"/","",false,true)
+	c.SetCookie("epub-tool-refresh-token",refreshToken,30*24*60*60,"/","",false,true)
 
 	c.JSON(http.StatusCreated,gin.H{"success":true,"data":user})
 }
@@ -179,6 +191,28 @@ func (u *UserHandler) Refresh(c *gin.Context){
 		log.Println("Error updating refresh token:",err)
 	}
 	c.SetCookie("epub-tool-access-token",accessToken,15*60,"/","",false,true)
-	c.SetCookie("epub-tool-refresh-token",newRefreshToken,15*60,"/","",false,true)
+	c.SetCookie("epub-tool-refresh-token",newRefreshToken,30*24*60*60,"/","",false,true)
 	c.JSON(http.StatusCreated,gin.H{"success":true})
+}
+
+func (u *UserHandler) Auth(c *gin.Context) {
+	userID := c.Keys["userID"].(string)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	user, err := u.user.GetByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Internal Server Error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": user})
+}
+
+func (u *UserHandler) SignOut(c *gin.Context) {
+	c.SetCookie("epub-tool-access-token", "", -1, "/", "", false, true)
+	c.SetCookie("epub-tool-refresh-token", "", -1, "/", "", false, true)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Signed out successfully"})
 }
