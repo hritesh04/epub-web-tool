@@ -18,7 +18,7 @@ export default function Navbar({ user, onSignOut }: NavbarProps) {
   const isAuthed = Boolean(user)
 
   return (
-    <div className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-xl dark:border-primary/10 dark:bg-card/50">
+    <div className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 dark:border-primary/10 dark:bg-card/50">
       <div className="px-20 flex h-20 items-center justify-between gap-4 md:h-20">
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-2">
@@ -27,8 +27,14 @@ export default function Navbar({ user, onSignOut }: NavbarProps) {
             </div>
             <div className="leading-none">
               <div className="text-sm font-semibold tracking-tight">EpubStudio</div>
-              <div className="hidden text-[11px] text-muted-foreground sm:block">
+              
+              {
+              // after editor
+              /* <div className="hidden text-[11px] text-muted-foreground sm:block">
                 Edit • Translate • Convert
+              </div> */}
+              <div className="hidden text-[11px] text-muted-foreground sm:block">
+                Translate
               </div>
             </div>
           </Link>
@@ -44,19 +50,21 @@ export default function Navbar({ user, onSignOut }: NavbarProps) {
                 <LayoutDashboard className="h-3.5 w-3.5" />
                 <span>Dashboard</span>
               </Link>
-              <Link
+              {/* // after editor */}
+              {/* <Link
                 to="/editor"
                 className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
               >
                 <PenSquare className="h-3.5 w-3.5" />
                 <span>Editor</span>
-              </Link>
+              </Link> */}
             </>
           ) : (
             <>
-              <a className="text-muted-foreground hover:text-foreground" href="#features">
+            {/* // after editor */}
+              {/* <a className="text-muted-foreground hover:text-foreground" href="#features">
                 Features
-              </a>
+              </a> */}
               <a className="text-muted-foreground hover:text-foreground" href="#workflow">
                 Workflow
               </a>

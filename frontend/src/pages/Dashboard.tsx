@@ -1,17 +1,45 @@
-import axios, { type AxiosProgressEvent } from 'axios'
-import { useCallback, useRef, useState } from 'react'
-import { ArrowRight, BookOpen, Clock, FileText, Loader2, Search, Upload, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  ArrowRight, 
+  BookOpen, 
+  Clock, 
+  FileText, 
+  Loader2, 
+  Search, 
+  Upload, 
+  X,
+  Plus,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
+import axios, { type AxiosProgressEvent } from 'axios'
 
-import { Badge } from '@/components/ui/badge'
+import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
+import { BookCard, type TranslationJob, type TranslationStatus } from '@/components/dashboard/BookCard'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
-const UPLOAD_URL_API = import.meta.env.VITE_UPLOAD_URL_API || 'http://localhost:3000/upload'
-const UPLOAD_FINISH_API = import.meta.env.VITE_UPLOAD_FINISH_API || 'http://localhost:3000/upload'
-const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024 // 1GB
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024 // 1GB
 
 const TARGET_LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -28,29 +56,23 @@ const TARGET_LANGUAGES = [
   { value: 'zh', label: 'Chinese' },
 ] as const
 
-type TranslationStatus = 'in-progress' | 'done'
+// Moved to BookCard.tsx
+// type TranslationJob = { ... }
 
-type TranslationJob = {
-  title: string
-  author: string
-  language: string
-  status: TranslationStatus
-  progress: number
-  lastUpdated: string
-  size: string
+const mapTranslationJob = (data: any): TranslationJob => {
+  return {
+    id: data.id || data.ID || '',
+    title: data.title || data.Title || 'Untitled Book',
+    size: data.size || data.Size || 0,
+    translateTo: data.translateTo || data.TranslateTo || '',
+    status: (data.status || data.Status || 'queued').toLowerCase() as TranslationStatus,
+    userID: data.userID || data.UserID || '',
+    chunkCount: data.chunkCount || data.ChunkCount || 0,
+    createdAt: data.createdAt || data.CreatedAt || new Date().toISOString(),
+    updatedAt: data.updatedAt || data.UpdatedAt || '',
+    objectKey: data.objectKey ||''
+  }
 }
-
-const translationLibrary: TranslationJob[] = [
-  {
-  title: 'testing',
-  author: 'testing',
-  language: 'testing',
-  status: 'in-progress',
-  progress: 0,
-  lastUpdated: 'testing',
-  size: 'testing',
-}
-] as const
 
 type UploadValues = {
   key: string;
@@ -61,7 +83,7 @@ type UploadValues = {
   'X-Amz-Signature': string;
 }
 
-type UploadUrlResponse = { 
+type UploadUrlResponse = {
   success: boolean;
   data: {
     URL: string;
@@ -70,6 +92,9 @@ type UploadUrlResponse = {
 }
 
 export default function Dashboard() {
+  const [translationLibrary, setTranslationLibrary] = useState<TranslationJob[]>([])
+  const [epubsLoading, setEpubsLoading] = useState(true)
+  const [epubsError, setEpubsError] = useState<string | null>(null)
   const [fetchingUrl, setFetchingUrl] = useState(false)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadUrl, setUploadUrl] = useState<string | null>(null)
@@ -79,7 +104,31 @@ export default function Dashboard() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const fetchLibrary = useCallback(async () => {
+    setEpubsLoading(true)
+    setEpubsError(null)
+    try {
+      const res = await api.get<any>('/epubs')
+      const env = res.data
+      const rawList = Array.isArray(env) ? env : (env?.data || [])
+      const list = (Array.isArray(rawList) ? rawList : [])
+        .map(mapTranslationJob)
+        .filter(job => job.title.trim() !== '')
+      setTranslationLibrary(list)
+    } catch (err: any) {
+      setEpubsError(err.response?.data?.message ?? 'Failed to load library.')
+    } finally {
+      setEpubsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchLibrary()
+  }, [fetchLibrary])
+
   const validateFile = useCallback((file: File) => {
     if (!(file.name.endsWith('.epub') || file.type === 'application/epub+zip')) {
       setUploadError('Please select a valid EPUB file.')
@@ -99,42 +148,20 @@ export default function Dashboard() {
     setUploadProgress(0)
     setFetchingUrl(true)
     try {
-      const {data} = await axios.get<UploadUrlResponse>(UPLOAD_URL_API)
-      if(!data.success){
-        setUploadUrl(null)
+      const { data } = await api.get<UploadUrlResponse>('/upload')
+      if (!data.success) {
         setUploadError('Internal server error, Please try again later')
-        setUploadFieldValues(null)
         return
       }
-      const url = data.data.URL
-      if (!url || typeof url !== 'string') throw new Error('Invalid response: missing upload URL')
-      setUploadUrl(url)
-      setUploadError(null)
+      setUploadUrl(data.data.URL)
       setUploadFieldValues(data.data.Values)
-    } catch (err: unknown) {
-      setUploadUrl(null)
-      setUploadFieldValues(null)
-      const message =
-        axios.isAxiosError(err) && err.response?.status
-          ? `Failed to get upload URL: ${err.response.status}`
-          : err instanceof Error
-            ? err.message
-            : 'Could not get upload URL'
-      setUploadError(message)
+      setUploadModalOpen(true)
+    } catch (err: any) {
+      setUploadError(err.response?.data?.message ?? 'Could not get upload URL')
+      setUploadModalOpen(true)
     } finally {
       setFetchingUrl(false)
-      setUploadModalOpen(true)
     }
-  }, [])
-
-  const closeUploadModal = useCallback(() => {
-    setUploadModalOpen(false)
-    setUploadUrl(null)
-    setSelectedFile(null)
-    setTargetLanguage('')
-    setUploadProgress(0)
-    setUploading(false)
-    setUploadError(null)
   }, [])
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,26 +173,12 @@ export default function Dashboard() {
     e.target.value = ''
   }, [validateFile])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      setUploadError(null)
-      if (validateFile(file)) setSelectedFile(file)
-    }
-  }, [validateFile])
-
-  const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), [])
-
   const startUpload = useCallback(async () => {
     if (!uploadUrl || !selectedFile || !targetLanguage) return
-    if (selectedFile.size > MAX_UPLOAD_BYTES) {
-      setUploadError('Max file size is 1GB.')
-      return
-    }
     setUploading(true)
     setUploadError(null)
     setUploadProgress(0)
+
     const form = new FormData()
     form.append('key', uploadFieldValues?.key ?? '')
     form.append("Content-Type", "application/epub+zip")
@@ -175,364 +188,313 @@ export default function Dashboard() {
     form.append('X-Amz-Date', uploadFieldValues?.['X-Amz-Date'] ?? '')
     form.append('X-Amz-Signature', uploadFieldValues?.['X-Amz-Signature'] ?? '')
     form.append('file', selectedFile)
+
     try {
+      // Use original axios for S3 upload to avoid base URL interceptors
       const res = await axios.post(uploadUrl, form, {
         onUploadProgress: (e: AxiosProgressEvent) => {
           if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100))
         },
       })
+
       if (res.status === 204) {
-        const finishRes = await axios.post(`${UPLOAD_FINISH_API}/${uploadFieldValues?.key}`,{
+        const finishRes = await api.post(`/upload/${uploadFieldValues?.key}`, {
           title: selectedFile.name,
           size: selectedFile.size,
           key: uploadFieldValues?.key,
-          translate_to: targetLanguage,
+          translateTo: targetLanguage,
         })
-        if (finishRes.status !== 200) {
-          setUploadError('Upload Failed, Please try again')
-          setTimeout(closeUploadModal, 2000)
-          return
+        const resData = finishRes.data
+        const bookData = (resData?.success && resData?.data) ? resData.data : resData
+        
+        if (bookData && bookData.id) {
+          setTranslationLibrary((prev) => {
+            const index = prev.findIndex(item => item.id === bookData.id)
+            if (index !== -1) {
+              const next = [...prev]
+              next[index] = bookData
+              return next
+            }
+            return [...prev, bookData]
+          })
         }
-        translationLibrary.push(finishRes.data.data)
         setUploadProgress(100)
-        setTimeout(closeUploadModal, 2000)
-      }else{
+        setTimeout(() => setUploadModalOpen(false), 800)
+      } else {
         setUploadError('Upload Failed, Please try again')
-        setTimeout(closeUploadModal, 2000)
       }
-    } catch (err: unknown) {
-      const message = axios.isAxiosError(err) && err.response?.status === 403 ? 'Upload Failed, Please try again' : 'Internal server error, Please try again later'
-      setUploadError(message)
+    } catch (err: any) {
+      setUploadError('Upload Failed: ' + (err.response?.data?.message ?? 'Internal server error'))
     } finally {
       setUploading(false)
-      setTimeout(closeUploadModal, 2000)
     }
-  }, [uploadUrl, selectedFile, closeUploadModal, uploadFieldValues, targetLanguage])
+  }, [uploadUrl, selectedFile, uploadFieldValues, targetLanguage])
+
+  const handleDeleteBook = useCallback(async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this book? This action cannot be undone.')) {
+      return
+    }
+    try {
+      await api.delete(`/epub/${id}`)
+      setTranslationLibrary((prev) => prev.filter(book => book.id !== id))
+    } catch (err: any) {
+      setEpubsError(err.response?.data?.message ?? 'Failed to delete book.')
+    }
+  }, [])
+
+  const filteredLibrary = translationLibrary.filter(book => 
+    book.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
-    <div className="flex flex-col bg-background">
-      {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-md border bg-card shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <CardTitle className="text-lg">Upload EPUB</CardTitle>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={closeUploadModal}
-                disabled={uploading}
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {uploadError && (
-                <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {uploadError}
-                </p>
-              )}
-              {!uploadUrl ? (
-                <p className="py-2 text-center text-sm text-muted-foreground">
-                  Close and try again when the server is ready.
-                </p>
-              ) : !selectedFile ? (
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-foreground">Translate to</p>
-                    <select
-                      value={targetLanguage}
-                      onChange={(e) => setTargetLanguage(e.target.value)}
-                      disabled={uploading}
-                      className={cn(
-                        'flex h-10 w-full rounded-md border border-input bg-background px-1 text-sm outline-none ring-offset-background',
-                        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50',
-                      )}
-                    >
-                      <option value="" disabled>
-                        Select a language…
-                      </option>
-                      {TARGET_LANGUAGES.map((l) => (
-                        <option key={l.value} value={l.value}>
-                          {l.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div
-                    className={cn(
-                      'rounded-xl border-2 border-dashed bg-muted/30 px-6 py-10 transition-colors',
-                      'hover:border-primary/50 hover:bg-muted/50',
-                    )}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".epub,application/epub+zip"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                    <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
-                    <p className="mt-3 text-center text-sm font-medium text-foreground">
-                      Drag and drop your EPUB here
-                    </p>
-                    <p className="mt-1 text-center text-xs text-muted-foreground">or</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mt-3 w-full"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading || !targetLanguage}
-                    >
-                      Browse files
-                    </Button>
-                    {!targetLanguage && (
-                      <p className="mt-2 text-center text-xs text-muted-foreground">
-                        Choose a target language first.
-                      </p>
-                    )}
-                    <p className="mt-2 text-center text-xs text-muted-foreground">
-                      Max file size: 1GB.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-foreground">Translate to</p>
-                    <select
-                      value={targetLanguage}
-                      onChange={(e) => setTargetLanguage(e.target.value)}
-                      disabled={uploading}
-                      className={cn(
-                        'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background',
-                        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50',
-                      )}
-                    >
-                      <option value="" disabled>
-                        Select a language…
-                      </option>
-                      {TARGET_LANGUAGES.map((l) => (
-                        <option key={l.value} value={l.value}>
-                          {l.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-                    <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 truncate text-sm font-medium">
-                      {selectedFile.name}
-                    </span>
-                    {!uploading && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto shrink-0"
-                        onClick={() => setSelectedFile(null)}
-                      >
-                        Change
-                      </Button>
-                    )}
-                  </div>
-                  {uploading && (
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Uploading…</span>
-                        <span>{uploadProgress}%</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    className="w-full gap-2"
-                    onClick={startUpload}
-                    disabled={uploading || !targetLanguage}
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading…
-                      </>
-                    ) : (
-                      'Upload'
-                    )}
-                  </Button>
-                  <p className="text-center text-xs text-muted-foreground">
-                    Max file size: 1GB.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-        <div className="relative flex h-10 flex-col bg-background">
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 top-0 -z-2 hidden h-[260px] dark:block"
-      >
-        <div className="h-full bg-[radial-gradient(900px_360px_at_top,hsl(var(--primary)/0.45),transparent_70%)]" />
-      </div>
-      </div>
-      <main className="flex-1">
-        <div className="px-28 py-8 md:py-10">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-1.5">
-              <Badge variant="outline" className="bg-background/70">
-                Library
-              </Badge>
-              <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-                Your EPUB shelf
-              </h1>
-              <p className="max-w-md text-sm text-muted-foreground">
-                See every EPUB that’s currently being translated, watch progress,
-                and grab the finished files when they’re ready.
-              </p>
+    <div className="flex-1 flex flex-col pt-20">
+      <div className="container px-4 mx-auto pb-12">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
+              <BookOpen className="h-3 w-3" />
+              Your Library
             </div>
-            <div className="flex w-full max-w-sm items-center gap-2">
-              <div className="relative flex-1 w-full">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                  <Search className="h-3.5 w-3.5" />
-                </span>
-                <Input
-                  placeholder="Search Book"
-                  className="h-9 pl-9"
-                />
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                className="gap-1.5"
-                onClick={openUploadModal}
-                disabled={fetchingUrl}
-              >
-                {fetchingUrl ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <>
-                    Translate
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </>
-                )}
-              </Button>
-              <Button asChild type="button" size="sm" variant="outline" className="gap-1.5">
-                <Link to="/editor">
-                  Open editor
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </div>
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl text-foreground">
+              Welcome Back
+            </h1>
+            <p className="text-muted-foreground max-w-lg">
+              Manage your translations, track progress, and download your polished books from one central workspace.
+            </p>
           </div>
 
-          <section className="mt-6 space-y-4 py-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1 rounded-full border bg-card px-2.5 py-1">
-                  <BookOpen className="h-3.5 w-3.5" />
-                  {translationLibrary.length} translation jobs
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full border bg-card px-2.5 py-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  2 in progress, 1 finished
-                </span>
+          <div className="flex items-center gap-3">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input
+                placeholder="Find a book..."
+                className="pl-10 w-full md:w-64 h-11 bg-background/50 border-border/50 rounded-xl"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Button size="lg" className="h-11 px-6 rounded-xl shadow-lg shadow-primary/20 gap-2" onClick={openUploadModal} disabled={fetchingUrl}>
+              {fetchingUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              New Book
+            </Button>
+          </div>
+        </div>
+
+        {/* Library Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 h-24 flex items-center p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <BookOpen className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{translationLibrary.length}</div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Books</div>
               </div>
             </div>
-            {translationLibrary.length == 0 && <div className="text-muted-foreground text-center py-10">No translation jobs found</div>}
-            {translationLibrary.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-3">
-              {translationLibrary.map((book) => (
-                <Card key={book.title} className="h-full border bg-card/80 backdrop-blur">
-                  <CardHeader className="space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <CardTitle className="line-clamp-2 text-sm font-semibold">
-                          {book.title}
-                        </CardTitle>
-                        <CardDescription className="mt-1 text-xs">
-                          {book.author}
-                        </CardDescription>
-                      </div>
-                      <Badge variant="outline" className="border-dashed text-[11px]">
-                        {book.language}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3 pt-1">
-                    <div className="space-y-2 text-[11px] text-muted-foreground">
-                      <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          {book.size}
-                        </span>
-                        <span>{book.lastUpdated}</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                            <span
-                              className={cn(
-                                'h-1.5 w-1.5 rounded-full',
-                                book.status === 'done'
-                                  ? 'bg-emerald-500'
-                                  : 'bg-primary',
-                              )}
-                            />
-                            {book.status === 'done'
-                              ? 'Finished'
-                              : `${book.progress}% translated`}
-                          </span>
-                          {book.status === 'done' ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-6 px-2 text-[11px]"
-                            >
-                              Download
-                            </Button>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              Translating…
-                            </span>
-                          )}
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={cn(
-                              'h-full rounded-full bg-primary transition-all',
-                              book.status === 'done' && 'bg-emerald-500',
-                            )}
-                            style={{
-                              width:
-                                book.status === 'done'
-                                  ? '100%'
-                                  : `${book.progress}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+          </Card>
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 h-24 flex items-center p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                <Clock className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{translationLibrary.filter(b => b.status === 'in-progress').length}</div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">In Progress</div>
+              </div>
             </div>
-            )}
-          </section>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50 h-24 flex items-center p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{translationLibrary.filter(b => b.status === 'completed').length}</div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Completed</div>
+              </div>
+            </div>
+          </Card>
         </div>
-      </main>
+
+        {/* Error State */}
+        {epubsError && (
+          <div className="mb-8 p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5" />
+              <p>{epubsError}</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={fetchLibrary} className="h-8 hover:bg-destructive/20 text-destructive">
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {/* Library Grid */}
+        <AnimatePresence mode="popLayout">
+      {epubsLoading ? (
+            <motion.div 
+              key="loading-spinner"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center py-20 text-center"
+            >
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <p className="text-muted-foreground">Syncing your library...</p>
+            </motion.div>
+          ) : filteredLibrary.length > 0 ? (
+            <motion.div 
+              key="library-grid"
+              className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: { 
+                  opacity: 1,
+                  transition: { staggerChildren: 0.1, delayChildren: 0.2 } 
+                }
+              }}
+            >
+              {filteredLibrary.map((book) => (
+                <BookCard key={book.id} book={book} onDelete={handleDeleteBook} />
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="empty-state"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="flex flex-col items-center justify-center py-32 text-center"
+            >
+              <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-6">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No books found</h3>
+              <p className="text-muted-foreground max-w-sm mb-8">
+                Your library is currently empty. Upload your first EPUB to start translating or editing.
+              </p>
+              <Button size="lg" className="rounded-xl gap-2" onClick={openUploadModal}>
+                <Plus className="h-4 w-4" />
+                Upload My First Book
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadModalOpen} onOpenChange={(open) => !uploading && setUploadModalOpen(open)}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none bg-card/60 backdrop-blur-2xl">
+          <DialogHeader className="p-6 pb-4">
+            <DialogTitle className="text-2xl font-bold">Upload EPUB</DialogTitle>
+            <DialogDescription>
+              Select your file and target language to start the process.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-6 pt-0 space-y-6">
+            {uploadError && (
+              <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {uploadError}
+              </div>
+            )}
+
+            {!selectedFile ? (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label>Translate to</Label>
+                  <Select value={targetLanguage} onValueChange={setTargetLanguage}>
+                    <SelectTrigger className="h-12 bg-background/50 rounded-xl border-border/50">
+                      <SelectValue placeholder="Select a language..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TARGET_LANGUAGES.map(lang => (
+                        <SelectItem key={lang.value} value={lang.value}>
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div
+                  className={cn(
+                    "relative group cursor-pointer rounded-2xl border-2 border-dashed border-border/50 bg-background/30 p-12 transition-all text-center",
+                    "hover:border-primary/50 hover:bg-primary/5",
+                    !targetLanguage && "opacity-50 cursor-not-allowed"
+                  )}
+                  onClick={() => targetLanguage && fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".epub,application/epub+zip"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={!targetLanguage}
+                  />
+                  <div className="flex flex-col items-center">
+                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4 transition-transform group-hover:scale-110">
+                      <Upload className="h-6 w-6" />
+                    </div>
+                    <p className="font-semibold text-foreground">Drag and drop file</p>
+                    <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="relative p-4 rounded-2xl border border-border/50 bg-background/50 flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate uppercase tracking-tight">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  </div>
+                  {!uploading && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => setSelectedFile(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Target Language</span>
+                      <span className="font-bold text-primary">
+                        {TARGET_LANGUAGES.find(l => l.value === targetLanguage)?.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {uploading ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Uploading your book...</span>
+                        <span className="font-bold">{uploadProgress}%</span>
+                      </div>
+                      <Progress value={uploadProgress} className="h-2" />
+                    </div>
+                  ) : (
+                    <Button className="w-full h-12 rounded-xl text-lg font-semibold shadow-lg shadow-primary/20" onClick={startUpload}>
+                      Start Upload
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-

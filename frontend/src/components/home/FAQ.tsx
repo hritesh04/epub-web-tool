@@ -1,5 +1,6 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 
 import {
   Accordion,
@@ -7,95 +8,106 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
+const faqs = [
+  {
+    q: "How secure are my uploaded books?",
+    a: "We prioritize your privacy. Books are processed in an isolated environment and are never used for training models. You can delete your books at any time before 7 days after which your book is deleted automatically."
+  },
+  // {
+  //   q: "What languages are supported for translation?",
+  //   a: "We currently support 12+ major languages including English, Spanish, French, German, Japanese, and Chinese. Our translation engine preserves XHTML structure and styling, so the book looks the same, just in a different language."
+  // },
+  // {
+  //   q: "Can I edit the raw XHTML code?",
+  //   a: "Absolutely. Our editor gives you full access to content.opf, toc.ncx, and individual chapter XHTML files for fine-grained control over your ebook's structure and appearance."
+  // },
+  {
+    q: "Is the service free to use?",
+    a: "We offer a free tier that lets you translate and edit small ebooks to explore the platform. For larger books, faster processing, and advanced features, we provide affordable paid plans."
+  },
+  {
+    q: "How long does translation take?",
+    a: "Translation time depends on the number of chapter in your ebook. Small books are usually processed within minutes, while larger ebooks may take longer. You can monitor real-time progress from your dashboard."
+  }
+]
 export default function FAQ() {
   return (
-    <section id="faq" className="container pb-20 pt-14 md:pb-24 md:pt-20">
-      <div className="grid gap-12 lg:grid-cols-12">
-        <div className="lg:col-span-5">
-          <h2 className="text-pretty text-2xl font-semibold tracking-tight md:text-3xl">
-            Questions, answered.
-          </h2>
-          <p className="mt-3 text-pretty text-muted-foreground">
-            Short, clear answers—so you can stay focused on reading instead of hunting settings.
+    <section id="faq" className="container px-4 py-24 mx-auto">
+      <div className="max-w-3xl mx-auto mb-20">
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+            <MessageCircle className="h-6 w-6" />
+          </div>
+          <h2 className="text-4xl font-bold tracking-tight">Frequently Asked Questions</h2>
+          <p className="text-muted-foreground text-lg">
+            Everything you need to know about EpubStudio and our advanced processing workflow.
           </p>
         </div>
-
-        <div className="lg:col-span-7">
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="t1">
-              <AccordionTrigger>Why can translation take hours?</AccordionTrigger>
-              <AccordionContent>
-                Long books have lots of text and formatting to preserve. We queue jobs, keep progress, and
-                finish in the background so your browser doesn’t need to stay open.
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="t2">
-              <AccordionTrigger>Do you keep my files?</AccordionTrigger>
-              <AccordionContent>
-                Outputs are designed for easy export. In a production setup you can configure retention (e.g.,
-                auto-delete after N days) so your storage stays clean.
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="t3">
-              <AccordionTrigger>Can I convert both ways (EPUB ↔ PDF)?</AccordionTrigger>
-              <AccordionContent>
-                Yes—EPUB → PDF for sharing/printing, and PDF → EPUB when you need a reflowable version you can
-                edit and polish.
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="t4">
-              <AccordionTrigger>Does it handle messy EPUBs?</AccordionTrigger>
-              <AccordionContent>
-                That’s the point: cleanup tools normalize structure, reduce inline clutter, and help you
-                validate before exporting.
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
       </div>
 
-      <div className="mt-16 rounded-2xl border bg-card p-8 md:p-10">
-        <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-          <div>
-            <div className="text-xl font-semibold tracking-tight">Ready to tidy up your EPUB library?</div>
-            <div className="mt-2 text-muted-foreground">
-              Upload a book, run the tools you need, and keep your personal collection in order.
-            </div>
-          </div>
-          <Button asChild size="lg" className="group">
-            <Link to="/signin">
-              Start free
-              <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </Button>
-        </div>
+      <div className="max-w-2xl mx-auto mb-32">
+        <Accordion type="single" collapsible className="w-full space-y-4">
+          {faqs.map((faq, idx) => (
+            <AccordionItem key={idx} value={`item-${idx}`} className="border rounded-2xl px-6 bg-card/30 backdrop-blur-sm transition-all hover:border-primary/20">
+              <AccordionTrigger className="text-left text-lg font-medium hover:no-underline py-6">
+                {faq.q}
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground text-base pb-6 leading-relaxed">
+                {faq.a}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
       </div>
 
-      <footer className="mt-10 pb-6 pt-10 text-sm text-muted-foreground">
-        <div className="container flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          {/* <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-xl border bg-card">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <span>© {new Date().getFullYear()} EpubStudio</span>
-          </div> */}
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <a className="hover:text-foreground" href="#features">
-              Features
-            </a>
-            <a className="hover:text-foreground" href="#faq">
-              FAQ
-            </a>
-            <a className="hover:text-foreground" href="#">
-              Privacy
-            </a>
+      {/* CTA Footer Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="relative overflow-hidden rounded-[2.5rem] border bg-card p-8 md:p-16 lg:p-20 text-center"
+      >
+        {/* Background Gradients */}
+        <div className="absolute top-0 left-0 w-full h-full -z-10 opacity-30">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[100px] rounded-full" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/20 blur-[100px] rounded-full" />
+        </div>
+
+        <div className="max-w-2xl mx-auto space-y-8">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+            Ready to Build Your <br />
+            <span className="text-primary italic">Dream</span> Library?
+          </h2>
+          <p className="text-muted-foreground text-lg md:text-xl">
+            Join readers who use EpubStudio to keep their digital collections pristine.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button asChild size="lg" className="h-14 px-10 text-lg rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all w-full sm:w-auto">
+              <Link to="/signin">
+                Start for Free
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
           </div>
+        </div>
+      </motion.div>
+
+      <footer className="mt-24 pt-12 border-t border-border flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">
+            E
+          </div>
+          <span className="font-semibold text-foreground">EpubStudio</span>
+        </div>
+        <div className="flex gap-8">
+          {/* // after editor */}
+          {/* <a href="#features" className="hover:text-primary transition-colors">Features</a> */}
+          <a href="#workflow" className="hover:text-primary transition-colors">Workflow</a>
+          <a href="#faq" className="hover:text-primary transition-colors">FAQ</a>
         </div>
       </footer>
     </section>
   )
 }
-

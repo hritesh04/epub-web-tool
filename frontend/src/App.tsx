@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import api from '@/lib/api'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
-
+import { ThemeProvider } from '@/components/ThemeProvider'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import Navbar from '@/components/layout/Navbar'
 import Auth from '@/pages/Auth'
 import Dashboard from '@/pages/Dashboard'
@@ -11,11 +13,6 @@ type User = {
   email: string
 }
 
-const DUMMY_CREDENTIALS = {
-  email: 'reader@example.com',
-  password: 'epub12345',
-} as const
-
 function AppShell({
   user,
   onSignOut,
@@ -24,27 +21,71 @@ function AppShell({
   onSignOut: () => void
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="relative isolate flex min-h-screen flex-col overflow-x-hidden">
       <Navbar user={user} onSignOut={onSignOut} />
-      <div className="flex min-h-0 flex-1 flex-col">
+      <main className="flex min-h-0 flex-1 flex-col">
         <Outlet />
-      </div>
+      </main>
     </div>
   )
 }
 
 function AppRoutes() {
   const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
+
+  const checkAuth = useCallback(async () => {
+    try {
+      const response = await api.get('/auth')
+      if (response.data.success) {
+        setUser(response.data.data)
+      }
+    } catch (err) {
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null)
+      if (window.location.pathname !== '/signin' && window.location.pathname !== '/') {
+        navigate('/signin')
+      }
+    }
+
+    window.addEventListener('auth-unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('auth-unauthorized', handleUnauthorized)
+  }, [navigate])
 
   const handleAuthSuccess = (email: string) => {
     setUser({ email })
     navigate('/dashboard')
   }
 
-  const handleSignOut = () => {
-    setUser(null)
-    navigate('/')
+  const handleSignOut = async () => {
+    try {
+      await api.post('/signout')
+    } catch (err) {
+      console.error('Sign out failed:', err)
+    } finally {
+      setUser(null)
+      navigate('/')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
   }
 
   return (
@@ -54,11 +95,7 @@ function AppRoutes() {
         <Route
           path="/signin"
           element={
-            <Auth
-              onSuccess={handleAuthSuccess}
-              dummyEmail={DUMMY_CREDENTIALS.email}
-              dummyPassword={DUMMY_CREDENTIALS.password}
-            />
+            user ? <Navigate to="/dashboard" replace /> : <Auth onSuccess={handleAuthSuccess} />
           }
         />
         <Route
@@ -77,8 +114,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   )
 }

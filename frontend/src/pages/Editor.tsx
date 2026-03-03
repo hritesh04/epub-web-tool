@@ -1,13 +1,34 @@
 import { useRef, useState } from 'react'
-import { BookOpen, Code2, FileText, ListTree, Upload, X } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { 
+  ArrowLeft,
+  BookOpen, 
+  FileText, 
+  ListTree, 
+  Upload, 
+  Save, 
+  FileCode,
+  Eye,
+  Type
+} from 'lucide-react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export default function Editor() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [activeFile, setActiveFile] = useState<string>('chapter1.xhtml')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,221 +48,273 @@ export default function Editor() {
   }
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault()
-
   const clearFile = () => setUploadedFile(null)
-
   const fileName = uploadedFile?.name ?? 'demo.epub'
 
   if (!uploadedFile) {
     return (
-      <div className="flex h-full flex-col bg-background">
-        <main className="flex flex-1 flex-col items-center justify-center px-4 py-12">
-          <div className="w-full max-w-md space-y-6 text-center">
-            <Badge variant="outline" className="bg-background/70">
-              Editor
+      <div className="flex-1 flex flex-col items-center justify-center p-4 bg-background relative overflow-hidden">
+        {/* Background Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+        
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-xl text-center space-y-8 relative z-10"
+        >
+          <div className="space-y-4">
+            <Badge variant="outline" className="px-3 py-1 border-primary/20 bg-primary/5 text-primary">
+              Pro Editor
             </Badge>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              Upload an EPUB to edit
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Open an EPUB to <span className="text-primary italic">Refine</span>.
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Drop your EPUB here or choose a file. You can then edit chapters, metadata,
-              <span className="font-medium text-foreground"> content.opf</span>, and
-              <span className="font-medium text-foreground"> toc.ncx</span> in one place.
+            <p className="text-muted-foreground text-lg max-w-md mx-auto">
+              Inspect chapters, live-edit metadata, and adjust the core OPF structure in a professional distraction-free environment.
             </p>
-            <div
-              className={cn(
-                'rounded-xl border-2 border-dashed bg-muted/30 px-6 py-12 transition-colors',
-                'hover:border-primary/50 hover:bg-muted/50',
-              )}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-            >
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".epub,application/epub+zip"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
-              <p className="mt-3 text-sm font-medium text-foreground">Drag and drop your EPUB</p>
-              <p className="mt-1 text-xs text-muted-foreground">or</p>
-              <Button
-                type="button"
-                className="mt-3"
+          </div>
+
+          <div
+            className={cn(
+              "group relative rounded-[2.5rem] border-2 border-dashed border-border/50 bg-card/30 backdrop-blur-xl p-12 transition-all",
+              "hover:border-primary/50 hover:bg-primary/5"
+            )}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".epub,application/epub+zip"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <div className="flex flex-col items-center">
+              <div className="h-20 w-20 rounded-[2rem] bg-background border shadow-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
+                <Upload className="h-10 w-10 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Drop your book here</h3>
+              <p className="text-muted-foreground mb-8">Supports standards-based .epub files</p>
+              <Button 
+                size="lg" 
+                className="rounded-2xl px-10 h-14 text-lg shadow-lg shadow-primary/20"
                 onClick={() => inputRef.current?.click()}
               >
-                Choose file
+                Select File
               </Button>
             </div>
           </div>
-        </main>
+
+          <div className="grid grid-cols-3 gap-4 pt-4">
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-10 w-10 rounded-xl bg-card border flex items-center justify-center">
+                <FileCode className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground">Source Edit</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-10 w-10 rounded-xl bg-card border flex items-center justify-center">
+                <Type className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground">Metadata</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-10 w-10 rounded-xl bg-card border flex items-center justify-center">
+                <Eye className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground">Live Preview</span>
+            </div>
+          </div>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <main className="flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col px-28 py-6 md:py-8">
-          <div className="flex shrink-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-1.5">
-              <Badge variant="outline" className="bg-background/70">
-                Editor
-              </Badge>
-              <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-                {fileName}
-              </h1>
-              <p className="max-w-xl text-sm text-muted-foreground">
-                Inspect and adjust chapters, metadata, and core EPUB files like
-                <span className="font-medium text-foreground"> content.opf</span> and
-                <span className="font-medium text-foreground"> toc.ncx</span> from a single view.
-              </p>
-            </div>
-            <div className="flex w-full max-w-sm items-center gap-2">
-              <Button type="button" size="sm" variant="outline">
-                Save draft
+    <div className="flex-1 flex flex-col bg-background overflow-hidden">
+      {/* Editor Toolbar */}
+      <header className="h-16 border-b border-border/50 bg-card/30 backdrop-blur-xl flex items-center justify-between px-6 shrink-0">
+        <div className="flex items-center gap-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={clearFile}>
+                <ArrowLeft className="h-5 w-5" />
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="gap-1.5 text-muted-foreground"
-                onClick={clearFile}
-              >
-                <X className="h-3.5 w-3.5" />
-                Remove EPUB
-              </Button>
-            </div>
+            </TooltipTrigger>
+            <TooltipContent>Close Editor</TooltipContent>
+          </Tooltip>
+          <div className="h-6 w-px bg-border/50 mx-2" />
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold truncate max-w-[200px]">{fileName}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Project Workspace</span>
           </div>
+        </div>
 
-          <section className="mt-6 grid min-h-0 flex-1 gap-4 md:grid-cols-[260px_minmax(0,1.7fr)_minmax(0,1.2fr)]">
-            <Card className="flex min-h-0 flex-col border bg-card/90 backdrop-blur">
-              <CardHeader className="shrink-0 space-y-1.5">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <BookOpen className="h-4 w-4" />
-                  Structure
-                </CardTitle>
-                <CardDescription>Navigate chapters and core files.</CardDescription>
-              </CardHeader>
-              <CardContent className="min-h-0 flex-1 space-y-3 overflow-auto text-xs text-muted-foreground">
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
-                    Spine
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-none px-3 py-1 flex items-center gap-1.5">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            File Loaded
+          </Badge>
+          <div className="h-6 w-px bg-border/50 mx-2" />
+          <Button variant="outline" className="rounded-xl h-10 gap-2">
+            <Eye className="h-4 w-4" />
+            Preview
+          </Button>
+          <Button className="rounded-xl h-10 gap-2 shadow-lg shadow-primary/20">
+            <Save className="h-4 w-4" />
+            Save Changes
+          </Button>
+        </div>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar: Structure */}
+        <aside className="w-80 border-r border-border/50 bg-card/20 backdrop-blur-sm flex flex-col shrink-0">
+          <div className="p-4 border-b border-border/50 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <BookOpen className="h-3 w-3" />
+              Library Structure
+            </h2>
+            {/* <Button variant="ghost" size="icon" className="h-6 w-6">
+              <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button> */}
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-6">
+              <div className="space-y-1">
+                <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tight">Core Assets</div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm hover:bg-primary/5 cursor-pointer group transition-colors">
+                    <FileCode className="h-4 w-4 text-blue-500" />
+                    <span className="flex-1 font-medium">content.opf</span>
+                    {/* <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" /> */}
                   </div>
-                  <ul className="space-y-1.5">
-                    <li className="flex items-center justify-between rounded-md border bg-background px-2.5 py-1.5 text-[13px]">
-                      <span>01 — Front matter</span>
-                    </li>
-                    <li className="flex items-center justify-between rounded-md px-2.5 py-1.5 text-[13px] hover:bg-muted/60">
-                      <span>02 — Chapter one</span>
-                    </li>
-                    <li className="flex items-center justify-between rounded-md px-2.5 py-1.5 text-[13px] hover:bg-muted/60">
-                      <span>03 — Chapter two</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="space-y-1.5 pt-1.5">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
-                    Core files
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm hover:bg-primary/5 cursor-pointer group transition-colors">
+                    <ListTree className="h-4 w-4 text-purple-500" />
+                    <span className="flex-1 font-medium">toc.ncx</span>
+                    {/* <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" /> */}
                   </div>
-                  <ul className="space-y-1.5">
-                    <li className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] hover:bg-muted/60">
-                      <FileText className="h-3.5 w-3.5" />
-                      <span>content.opf</span>
-                    </li>
-                    <li className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] hover:bg-muted/60">
-                      <ListTree className="h-3.5 w-3.5" />
-                      <span>toc.ncx</span>
-                    </li>
-                  </ul>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            <Card className="flex min-h-0 flex-col border bg-card/95 backdrop-blur">
-              <CardHeader className="shrink-0 flex flex-row items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="text-sm">Editor</CardTitle>
-                  <CardDescription>Raw XHTML / XML contents for the selected file.</CardDescription>
+              <div className="space-y-1">
+                <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tight">XHTML Chapters</div>
+                <div className="space-y-0.5">
+                  {[1, 2, 3, 4, 5].map((idx) => {
+                    const name = `chapter${idx}.xhtml`
+                    const isActive = activeFile === name
+                    return (
+                      <div 
+                        key={idx}
+                        onClick={() => setActiveFile(name)}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer group transition-all",
+                          isActive ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-primary/5"
+                        )}
+                      >
+                        <FileText className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-emerald-500")} />
+                        <span className="flex-1 font-medium">Chapter {idx}</span>
+                        {/* {isActive && <div className="h-1 w-1 rounded-full bg-primary-foreground" />} */}
+                      </div>
+                    )
+                  })}
                 </div>
-                <Badge variant="outline" className="flex items-center gap-1.5 text-[11px]">
-                  <Code2 className="h-3.5 w-3.5" />
-                  Source view
-                </Badge>
-              </CardHeader>
-              <CardContent className="min-h-0 flex-1 flex flex-col p-3">
-                <div className="flex min-h-0 flex-1 flex-col rounded-lg border bg-background p-3">
-                  <textarea
-                    spellCheck={false}
-                    className="min-h-0 flex-1 w-full resize-none border-0 bg-transparent font-mono text-[12px] leading-relaxed text-foreground outline-none focus-visible:ring-0"
-                    placeholder={`<!DOCTYPE html>
+              </div>
+            </div>
+          </ScrollArea>
+        </aside>
+
+        {/* Center: Editor */}
+        <main className="flex-1 flex flex-col bg-background p-4 overflow-hidden">
+          <Card className="flex-1 flex flex-col border-border/50 bg-card/30 overflow-hidden rounded-[2rem]">
+            <div className="h-12 px-6 border-b border-border/50 flex items-center justify-between bg-background/50">
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="text-xs font-mono font-medium text-muted-foreground">{activeFile}</span>
+              </div>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="rounded-md border-border/50 font-mono text-[10px]">UTF-8</Badge>
+                <Badge variant="outline" className="rounded-md border-border/50 font-mono text-[10px]">XHTML 1.1</Badge>
+              </div>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-6 font-mono text-sm leading-relaxed">
+                <textarea
+                  spellCheck={false}
+                  className="w-full min-h-[500px] resize-none border-0 bg-transparent text-foreground outline-none focus-visible:ring-0 leading-relaxed"
+                  defaultValue={`<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <title>Chapter one</title>
+    <title>Chapter One</title>
+    <link rel="stylesheet" type="text/css" href="../Styles/style.css" />
   </head>
   <body>
-    <h1>Chapter one</h1>
-    <p>Paste or edit the raw chapter markup here.</p>
+    <h1>Chapter One: The Awakening</h1>
+    <p>The dawn broke over the horizon, casting long, dramatic shadows across the valley.</p>
+    <p>Everything was about to change. The data stream hummed with a rhythm only the initiates could hear.</p>
+    <div className="scene-break">***</div>
+    <p>It was a cold morning, even for Antarctica.</p>
   </body>
 </html>`}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                />
+              </div>
+            </ScrollArea>
+          </Card>
+        </main>
 
-            <div className="flex min-h-0 flex-col gap-4 overflow-auto">
-              <Card className="shrink-0 border bg-card/90 backdrop-blur">
-                <CardHeader className="space-y-1.5">
-                  <CardTitle className="text-sm">Metadata</CardTitle>
-                  <CardDescription>Key fields from content.opf.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-xs">
-                  <div className="space-y-1">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
-                      Title
-                    </div>
-                    <Input size={12} className="h-8 text-xs" defaultValue="Reading in Translation" />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
-                      Author
-                    </div>
-                    <Input size={12} className="h-8 text-xs" defaultValue="Lina Zhou" />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
-                      Language
-                    </div>
-                    <Input size={12} className="h-8 text-xs" defaultValue="de" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shrink-0 border bg-card/90 backdrop-blur">
-                <CardHeader className="space-y-1.5">
-                  <CardTitle className="text-sm">Table of contents</CardTitle>
-                  <CardDescription>High-level view from toc.ncx.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 text-xs text-muted-foreground">
-                  <ul className="space-y-1.5">
-                    <li className="flex items-center justify-between rounded-md bg-background px-2.5 py-1.5 text-[13px]">
-                      <span>Front matter</span>
-                      <span className="text-[11px] text-muted-foreground">navPoint 1</span>
-                    </li>
-                    <li className="flex items-center justify-between rounded-md px-2.5 py-1.5 text-[13px] hover:bg-muted/60">
-                      <span>Chapter one</span>
-                      <span className="text-[11px] text-muted-foreground">navPoint 2</span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
+        {/* Right Sidebar: Attributes */}
+        <aside className="w-96 border-l border-border/50 bg-card/20 backdrop-blur-sm flex flex-col shrink-0">
+          <Tabs defaultValue="metadata" className="flex-1 flex flex-col">
+            <div className="p-1 border-b border-border/50 bg-background/30">
+              <TabsList className="w-full bg-transparent p-0">
+                <TabsTrigger value="metadata" className="w-full rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm">Metadata</TabsTrigger>
+              </TabsList>
             </div>
-          </section>
-        </div>
-      </main>
+            
+            <TabsContent value="metadata" className="flex-1 m-0 p-0 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="p-6 space-y-8">
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Core Metadata</h3>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Book Title</Label>
+                        <Input defaultValue="Reading in Translation" className="h-10 bg-background/50 rounded-xl" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Primary Author</Label>
+                        <Input defaultValue="Lina Zhou" className="h-10 bg-background/50 rounded-xl" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Language Code</Label>
+                        <Input defaultValue="de-DE" className="h-10 bg-background/50 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Publisher Data</h3>
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Publisher</Label>
+                        <Input defaultValue="NightSky Press" className="h-10 bg-background/50 rounded-xl" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Date</Label>
+                        <Input type="date" className="h-10 bg-background/50 rounded-xl" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Identifier (ISBN)</Label>
+                        <Input defaultValue="978-3-16-148410-0" className="h-10 bg-background/50 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        </aside>
+      </div>
     </div>
   )
 }
-

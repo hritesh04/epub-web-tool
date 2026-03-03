@@ -1,79 +1,102 @@
 import { motion } from 'framer-motion'
-import { Check, FileDown, FileUp, Languages, Tags } from 'lucide-react'
+import { Check, FileDown, FileUp, Languages, Tags, Zap } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { fadeUp } from '@/components/home/animations'
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+}
 
 export default function Features() {
   const items = [
     {
       icon: Tags,
-      title: 'Metadata editing that doesn’t fight you',
-      desc: 'Bulk edits, consistent naming, and safe defaults—so your library stays tidy.',
-      bullets: ['Title/author/series + language', 'Cover & publisher', 'Batch apply templates'],
+      title: 'Effortless Metadata',
+      desc: 'Bulk edit titles, authors, and series with intelligent defaults and safe-undo caps.',
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
     },
     {
       icon: Languages,
-      title: 'Translation that runs in the background',
-      desc: 'Start a job, close your laptop, come back later. We keep progress and notify you.',
-      bullets: ['Queue + retries', 'Progress and ETA', 'Works even for long books (hours)'],
+      title: 'Background Authored',
+      desc: 'Heavy translations run completely in the background. Close your lid; we’ll be here.',
+      color: 'text-emerald-500',
+      bgColor: 'bg-emerald-500/10',
+    },
+    {
+      icon: Zap,
+      title: 'Real-time Preview',
+      desc: 'See exactly how your changes affect the book layout with our live-refreshing reader.',
+      color: 'text-amber-500',
+      bgColor: 'bg-amber-500/10',
     },
     {
       icon: FileDown,
-      title: 'EPUB → PDF conversion',
-      desc: 'Generate clean, shareable PDFs with consistent typography and spacing.',
-      bullets: ['Readable defaults', 'Page breaks + margins', 'Export presets'],
+      title: 'High-Fidelity PDF',
+      desc: 'Convert complex EPUB layouts to print-ready PDFs with professional typography.',
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-500/10',
     },
     {
       icon: FileUp,
-      title: 'PDF → EPUB conversion',
-      desc: 'Turn PDFs into reflowable EPUBs—then refine them with the editor.',
-      bullets: ['Reflow-first output', 'Structure cleanup', 'Fonts and style normalization'],
+      title: 'Intelligent Import',
+      desc: 'Our reflow engine extracts meaningful structure even from the messiest PDF files.',
+      color: 'text-pink-500',
+      bgColor: 'bg-pink-500/10',
+    },
+    {
+      icon: Check,
+      title: 'DRM-Free Export',
+      desc: 'Your books remain yours. Every export is clean, standards-compliant, and unlocked.',
+      color: 'text-indigo-500',
+      bgColor: 'bg-indigo-500/10',
     },
   ] as const
 
   return (
-    <section id="features" className="container pt-12 md:pt-16 lg:pt-20">
+    <section id="features" className="container px-4 py-20 mx-auto">
       <motion.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, margin: '-120px' }}
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+        viewport={{ once: true, margin: '-100px' }}
+        variants={containerVariants}
       >
-        <motion.div variants={fadeUp} className="max-w-2xl space-y-3">
-          <h2 className="text-pretty text-2xl font-semibold tracking-tight md:text-3xl">
-            Everything you need to take an EPUB from messy to organized.
-          </h2>
-          <p className="text-pretty text-muted-foreground">
-            Designed like a modern SaaS tool: clean layout, clear hierarchy, and delightful motion where it
-            matters.
-          </p>
-        </motion.div>
+        <div className="flex flex-col items-center text-center mb-16">
+          <motion.div variants={itemVariants} className="text-primary font-semibold tracking-wide uppercase text-sm mb-4">
+            Capabilities
+          </motion.div>
+          <motion.h2 variants={itemVariants} className="text-3xl md:text-5xl font-bold mb-6">
+            Everything You Need <br className="hidden md:block" /> for a Modern Library
+          </motion.h2>
+          <motion.p variants={itemVariants} className="text-muted-foreground max-w-2xl">
+            Designed like a modern engineering tool: clean hierarchies, clear status, and high-performance operations that don't block your workflow.
+          </motion.p>
+        </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {items.map((f) => (
-            <motion.div key={f.title} variants={fadeUp}>
-              <Card className="h-full border border-border/70 bg-card/95 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+            <motion.div key={f.title} variants={itemVariants}>
+              <Card className="group h-full border-border/50 bg-card/50 backdrop-blur-sm transition-all hover:bg-card hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5">
                 <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-10 w-10 place-items-center rounded-xl border bg-background">
-                      <f.icon className="h-4 w-4" />
-                    </div>
-                    <CardTitle className="text-base">{f.title}</CardTitle>
+                  <div className={`w-12 h-12 rounded-2xl ${f.bgColor} flex items-center justify-center mb-4 transition-transform group-hover:scale-110`}>
+                    <f.icon className={`h-6 w-6 ${f.color}`} />
                   </div>
-                  <CardDescription className="mt-2">{f.desc}</CardDescription>
+                  <CardTitle className="text-xl group-hover:text-primary transition-colors">{f.title}</CardTitle>
+                  <CardDescription className="text-muted-foreground leading-relaxed mt-2">
+                    {f.desc}
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    {f.bullets.map((b) => (
-                      <li key={b} className="flex items-start gap-2">
-                        <Check className="mt-0.5 h-4 w-4 text-foreground/70" />
-                        <span>{b}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
               </Card>
             </motion.div>
           ))}
@@ -82,4 +105,3 @@ export default function Features() {
     </section>
   )
 }
-

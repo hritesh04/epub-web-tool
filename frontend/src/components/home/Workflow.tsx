@@ -1,74 +1,94 @@
 import { motion } from 'framer-motion'
+import { CloudUpload, Cpu, Download } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { fadeUp } from '@/components/home/animations'
-import { cn } from '@/lib/utils'
+
+const steps = [
+  {
+    k: '01',
+    title: 'Instant Import',
+    desc: 'Drop your EPUB. Our systems automatically extract metadata and analyze structure.',
+    icon: CloudUpload,
+    color: 'text-blue-500',
+  },
+  {
+    k: '02',
+    title: 'Intelligent Processing',
+    // after editor
+    // desc: 'Queue translations, batch-edit metadata, or normalize styles. We handle the heavy lifting in the background.',
+    desc: 'Queue translation. We handle the heavy lifting in the background.',
+    icon: Cpu,
+    color: 'text-purple-500',
+  },
+  {
+    k: '03',
+    title: 'Clean Export',
+    // after editor
+    // desc: 'Download your polished book in multiple formats. Ready for any device.',
+    desc: 'Download your polished book. Ready for any device.',
+    icon: Download,
+    color: 'text-emerald-500',
+  },
+]
 
 export default function Workflow() {
-  const steps = [
-    {
-      k: '01',
-      title: 'Upload',
-      desc: 'Drop an EPUB or PDF. We analyze structure and extract metadata.',
-    },
-    {
-      k: '02',
-      title: 'Edit & run tools',
-      desc: 'Fix metadata, queue a translation, convert formats, and clean styles.',
-    },
-    {
-      k: '03',
-      title: 'Export',
-      desc: 'Download the final EPUB/PDF. Keep a history so you can reproduce outputs.',
-    },
-  ]
-
   return (
-    <section id="workflow" className="container pt-12 md:pt-16 lg:pt-20">
-      <div className="grid items-start gap-12 lg:grid-cols-12">
-        <div className="lg:col-span-5">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: '-120px' }}
-            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
-          >
-            <motion.div variants={fadeUp} className="space-y-3">
-              <Badge variant="outline" className="bg-background/60">
-                Workflow
-              </Badge>
-              <h2 className="mt-4 text-pretty text-2xl font-semibold tracking-tight md:text-3xl">
-                Three steps. Zero tool chaos.
-              </h2>
-              <p className="text-pretty text-muted-foreground">
-                Translation can take hours for long books, so jobs keep running in the background with progress,
-                retries, and notifications.
-              </p>
-            </motion.div>
-          </motion.div>
+    <section id="workflow" className="container px-4 py-20 mx-auto">
+      <div className="grid items-center gap-16 lg:grid-cols-2">
+        <div className="space-y-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-semibold text-primary">
+            Step-by-Step
+          </div>
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+            Three steps to a <br />
+            <span className="text-primary italic">Perfect</span> Library.
+          </h2>
+          <p className="text-lg text-muted-foreground leading-relaxed max-w-lg">
+            We’ve eliminated the complexity of traditional ebook management. No local installs, no registry hacks—just a powerful, automated workflow in your browser.
+          </p>
+          
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 text-sm font-medium">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span>No software installation required</span>
+            </div>
+            {/* <div className="flex items-center gap-3 text-sm font-medium">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span>Real-time persistence across devices</span>
+            </div> */}
+          </div>
         </div>
 
-        <div className="lg:col-span-7">
-          <div className="grid gap-5">
-            {steps.map((s) => (
-              <Card key={s.k} className="relative overflow-hidden">
-                <div
-                  className={cn(
-                    'absolute inset-y-0 left-0 w-1',
-                    s.k === '02' ? 'bg-primary/60' : 'bg-border',
-                  )}
-                />
-                <CardHeader className="flex-row items-start justify-between gap-6">
-                  <div>
-                    <CardTitle className="text-base">{s.title}</CardTitle>
-                    <CardDescription className="mt-1">{s.desc}</CardDescription>
-                  </div>
-                  <div className="rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-                    {s.k}
-                  </div>
-                </CardHeader>
-              </Card>
+        <div className="relative">
+          {/* Connecting Line */}
+          <div className="absolute left-[39px] top-8 bottom-8 w-px bg-gradient-to-b from-primary/50 via-border to-transparent hidden md:block" />
+          
+          <div className="grid gap-8">
+            {steps.map((s, idx) => (
+              <motion.div
+                key={s.k}
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.2 }}
+              >
+                <Card className="relative overflow-hidden border-border/50 bg-card/30 backdrop-blur-sm group hover:border-primary/30 transition-all">
+                  <CardHeader className="flex-row items-start gap-6 space-y-0 p-6">
+                    <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-background border shadow-sm group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                      <s.icon className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-primary tracking-widest uppercase">{s.k}</span>
+                        <CardTitle className="text-lg">{s.title}</CardTitle>
+                      </div>
+                      <CardDescription className="text-base text-muted-foreground">
+                        {s.desc}
+                      </CardDescription>
+                    </div>
+                  </CardHeader>
+                </Card>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -76,4 +96,3 @@ export default function Workflow() {
     </section>
   )
 }
-
