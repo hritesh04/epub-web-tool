@@ -37,16 +37,16 @@ func (u *UserHandler) SignIn(c *gin.Context){
 	if err != nil {
 		if errors.Is(err,pgx.ErrNoRows){
 			log.Println("User not found:",data.Email)
-			c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"User doesnt exists"})
+			c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid email or password"})
 			return
 		}
 		log.Println("Error checking if user with email:",data.Email,"exists:",err)
 		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
-	if user.ID == ""{
+	if user.ID == "" {
 		log.Println("User with email:",data.Email,"doesnt exists")
-		c.JSON(http.StatusNotFound,gin.H{"success":true,"message":"Invalid email or password"})
+		c.JSON(http.StatusUnauthorized,gin.H{"success":true,"message":"Invalid email or password"})
 		return
 	}
 
@@ -139,12 +139,25 @@ func (u *UserHandler) Refresh(c *gin.Context){
 		c.JSON(http.StatusPermanentRedirect,gin.H{"success":false,"url":"/signin"})
 		return
 	}
+	
 	token,err := utils.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		log.Println("Error validating refresh token:",err)
 		c.JSON(http.StatusPermanentRedirect,gin.H{"success":false,"url":"/signin"})
 		return
 	}
+
+	if err := u.user.CheckRefreshToken(c.Request.Context(),token.UserID,refreshToken);err != nil {
+		if err == pgx.ErrNoRows {
+			log.Println("user refresh token not matched:",token.UserID)
+			c.JSON(http.StatusUnauthorized,gin.H{"success":false,"url":"/signin"})
+			return
+		}
+		log.Println("Error checking user refresh token from db:",err)
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"url":"/signin"})
+		return
+	}
+	
 	if token.ExpiresAt.Compare(time.Now()) == -1 {
 		log.Println("Refresh token expired !")
 		c.JSON(http.StatusPermanentRedirect,gin.H{"success":false,"url":"/signin"})

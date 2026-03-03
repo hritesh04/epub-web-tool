@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"log"
 	"os"
 	"time"
 
@@ -16,6 +17,17 @@ var (
 type Claims struct {
 	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
+}
+
+func init(){
+	if len(accessSecret) == 0 {
+        log.Println("ACCESS_SECRET environment variable not set using default")
+		accessSecret=[]byte("SECRET?")
+    }
+    if len(refreshSecret) == 0 {
+        log.Println("REFRESH_SECRET environment variable not set using default")
+		refreshSecret=[]byte("SUPER_SECRET?")
+    }
 }
 
 func NewAccessToken(userID string) (string, error) {

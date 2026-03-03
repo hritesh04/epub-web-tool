@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/google/uuid"
@@ -54,6 +55,18 @@ func (u *UserRepository) UpdateRefreshToken(ctx context.Context, id string, toke
 	if row.RowsAffected() == 0 {
 		log.Println("Failed to update user refresh token no row effect for userID:",id)
 		return nil
+	}
+	return nil
+}
+
+func (u *UserRepository) CheckRefreshToken(ctx context.Context, id string, token string) error {
+	row, err := u.db.Exec(ctx,"SELECT id FROM users WHERE refresh_token = $1 WHERE id=$2;",token,id)
+	if err != nil {
+		return err
+	}
+	if row.RowsAffected() == 0 {
+		log.Println("Failed to update user refresh token no row effect for userID:",id)
+		return fmt.Errorf("Invalid refresh token")
 	}
 	return nil
 }
