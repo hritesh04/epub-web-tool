@@ -3,6 +3,8 @@ package s3
 import (
 	"context"
 	"io"
+	"log"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -10,6 +12,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hritesh04/epub-web-tool/internal/config"
 )
+
+type ChunkObject struct {
+	Key string
+	Reader io.Reader
+}
 
 type S3Uploader struct {
 	s3      *s3.Client
@@ -48,14 +55,25 @@ func (s *S3Uploader) UploadFile(ctx context.Context,key string,body io.Reader)(e
 	if err != nil {
 		return err
 	}
-	// presignClient :=s3.NewPresignClient(s.s3)
-	// req, err := presignClient.PresignGetObject(ctx,&s3.GetObjectInput{
-	// 	Bucket: aws.String("epubs"),
-	// 	Key: aws.String(key),
-	// },s3.WithPresignExpires(30*time.Minute))
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Println(req.URL)
 	return nil
+}
+
+func (s *S3Uploader) UploadConcurently(ctx context.Context) (chan ChunkObject,*sync.WaitGroup) {
+	var wg sync.WaitGroup
+	channel := make(chan ChunkObject,5)
+	for range 5{
+		go func(){
+			defer wg.Done()
+			for chItem := range channel {
+				item := chItem
+				log.Println(item)
+				_, err := s.s3.PutObject(ctx,&s3.PutObjectInput{Key: &item.Key,Bucket:&s.cfg.ChunkBucket,Body:item.Reader})
+				if err != nil {
+					log.Println("Error uploading chunk to s3:",err)
+				}
+			}
+		}()
+		wg.Add(1)
+	}
+	return channel,&wg
 }

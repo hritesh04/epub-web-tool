@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -63,4 +64,16 @@ func (s *S3Presign) GeneratePostObjectLink(
     }
 
     return req, nil
+}
+
+func (s *S3Presign) Exists(ctx context.Context, key string)bool{
+	_,err := s.s3.HeadObject(ctx,&s3.HeadObjectInput{
+		Bucket: &s.cfg.EpubBucket,
+		Key: &key,
+	})
+	if err != nil {
+		log.Println("Error checking head of an object:",err)
+		return false
+	}
+	return true
 }

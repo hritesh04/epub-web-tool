@@ -7,6 +7,7 @@ export type s3Config = {
     password:string;
     region:string;
     translationBucket:string;
+    chunkBucket:string;
 }
 
 export type queueConfig = {
@@ -17,12 +18,20 @@ export type queueConfig = {
     zipQueue:string;    
 }
 
+export type DBConfig = {
+    url:string;
+}
+
 export type config = {
+    DB: DBConfig
     s3 : s3Config
     queue : queueConfig
 }
 
 export function loadConfig():config{
+    
+    const dbUrl = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/epub"
+
     const queueHost = process.env.QUEUE_HOST || "localhost:5672"
     const queueUser = process.env.QUEUE_USER || "user"
     const queuePasseword = process.env.QUEUE_PASSWORD || "password"
@@ -34,14 +43,19 @@ export function loadConfig():config{
     const s3Password = process.env.S3_ENDPOINT || "minioadmin" 
     const s3Region = process.env.S3_REGION || "us-west-2"
     const s3TranslationBucket= process.env.S3_TRANSLATED_BUCKET || "translations"
+    const s3ChunkBucket= process.env.S3_CHUNK_BUCKET || "chunks"
 
     return {
+        DB:{
+            url:dbUrl
+        },
         s3:{
             endpoint:s3Endpoint,
             key:s3Key,
             password:s3Password,
             region:s3Region,
             translationBucket:s3TranslationBucket,
+            chunkBucket:s3ChunkBucket
         },
         queue:{
             host:queueHost,

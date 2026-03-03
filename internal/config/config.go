@@ -14,6 +14,8 @@ type S3 struct {
 	Key string
 	Password string
 	EpubBucket string
+	ChunkBucket string
+	TranslationBucket string
 }
 
 type Queue struct {
@@ -29,8 +31,13 @@ func (q *Queue) URI() string {
 	return fmt.Sprintf("amqp://%s:%s@%s",q.User,q.Password,q.Endpoint)
 }
 
+type DB struct {
+	Url string
+}
+
 type Config struct {
 	Port string
+	DB DB
 	S3 S3
 	Queue Queue
 }
@@ -45,11 +52,19 @@ func LoadConfig() Config {
 	if cfg.Port == "" {
 		cfg.Port="3000"
 	}
+
+	cfg.DB.Url = os.Getenv("DATABASE_URL")
+	if cfg.DB.Url == ""{
+		cfg.DB.Url="postgresql://postgres:postgres@localhost:5432/postgres"
+	}
+
 	cfg.S3.Endpoint = os.Getenv("S3_ENDPOINT")
 	cfg.S3.Key = os.Getenv("S3_KEY")
 	cfg.S3.Password = os.Getenv("S3_PASSWORD")
 	cfg.S3.Region = os.Getenv("S3_REGION")
 	cfg.S3.EpubBucket = os.Getenv("S3_EPUB_BUCKET")
+	cfg.S3.ChunkBucket = os.Getenv("S3_CHUNK_BUCKET")
+	cfg.S3.TranslationBucket = os.Getenv("S3_TRANSLATION_BUCKET")
 
 	if cfg.S3.Endpoint == "" {
 		cfg.S3.Endpoint="http://localhost:9000"
@@ -65,6 +80,12 @@ func LoadConfig() Config {
 	}
 	if cfg.S3.EpubBucket == "" {
 		cfg.S3.EpubBucket="epubs"
+	}
+	if cfg.S3.ChunkBucket == "" {
+		cfg.S3.ChunkBucket="chunks"
+	}
+	if cfg.S3.TranslationBucket == "" {
+		cfg.S3.TranslationBucket="translations"
 	}
 	
 	cfg.Queue.Endpoint = os.Getenv("QUEUE_HOST")

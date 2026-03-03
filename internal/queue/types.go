@@ -1,13 +1,14 @@
 package queue
 
 type TranslationMsg struct {
-	RequestID string `json:"requestID"`
+	EpubID string `json:"epubID"`
 	Key string	`json:"key"`
+	TranslateTo string `json:"translateTo"`
 }
 
 type ChunkMsg struct {
+	EpubID string `json:"epubID"`
 	Count int `json:"count"`
-	Path []string `json:"path"`
-	RequestID string `json:"requestID"`
-	Content map[string]string `json:"content"`
+	ChunkID int `json:"chunkID"`
+	TranslateTo string `json:"translateTo"`
 }
