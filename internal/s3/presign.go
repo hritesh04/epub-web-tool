@@ -55,7 +55,7 @@ func (s *S3Presign) GeneratePostObjectLink(
 
             []interface{}{"eq", "$Content-Type", "application/epub+zip"},
 
-            []interface{}{"content-length-range", 0, 50 * 1024 * 1024},
+            []interface{}{"content-length-range", 0, 2 * 1024 * 1024 * 1024},
         }
     })
 
@@ -64,6 +64,20 @@ func (s *S3Presign) GeneratePostObjectLink(
     }
 
     return req, nil
+}
+
+func (s *S3Presign) GenerateGetObjectLink(ctx context.Context, key string) (string,error) {
+	presignClient := s3.NewPresignClient(s.s3)
+	res, err := presignClient.PresignGetObject(ctx,&s3.GetObjectInput{
+		Bucket: &s.cfg.EpubBucket,
+		Key: &key,
+	}, func(opts *s3.PresignOptions) {
+        opts.Expires = 10 * time.Minute
+    })
+	if err != nil {
+		return "",err
+	}
+	return res.URL,nil
 }
 
 func (s *S3Presign) Exists(ctx context.Context, key string)bool{

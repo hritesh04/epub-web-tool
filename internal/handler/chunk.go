@@ -41,48 +41,63 @@ func (s *ChunkController) Progress(c *gin.Context) {
 		return
 	}
 
+	// Set SSE headers
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		c.Status(http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Streaming unsupported"})
 		return
 	}
 
 	ctx := c.Request.Context()
+	ticker := time.NewTicker(2 * time.Second)
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	defer heartbeat.Stop()
+
+	lastCount := -1
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Client disconnected")
+			log.Printf("Client disconnected: %s", epubID)
 			return
-		default:
+		case <-heartbeat.C:
+			// Send heartbeat comment to keep connection alive
+			fmt.Fprintf(c.Writer, ": heartbeat\n\n")
+			flusher.Flush()
+		case <-ticker.C:
 			count, err := s.chunk.EpubChunkStatus(ctx, epubID)
 			if err != nil {
-				log.Println("Error checking status:", err)
+				log.Printf("Error checking status for %s: %v", epubID, err)
 				return
 			}
 
-			if count == *epub.ChunkCount {
-				fmt.Fprintf(c.Writer,
-					"event: progress\n"+
-						"data: {\"status\":\"completed\",\"percent\": %d}\n\n",
-					count,
-				)
+			if count != lastCount {
+				lastCount = count
+				
+				status := "in-progress"
+				percent := 0
+				if epub.ChunkCount != nil && *epub.ChunkCount > 0 {
+					percent = (count * 100) / *epub.ChunkCount
+				}
+
+				if epub.ChunkCount != nil && count >= *epub.ChunkCount {
+					status = "finished"
+					percent = 100
+				}
+
+				fmt.Fprintf(c.Writer, "event: progress\ndata: {\"status\":\"%s\",\"progress\":%d}\n\n", status, percent)
 				flusher.Flush()
-				return
+
+				if status == "finished" {
+					return
+				}
 			}
-
-			fmt.Fprintf(c.Writer,
-				"event: progress\n"+
-					"data: {\"status\":\"in-progress\",\"percent\": %d}\n\n",
-				count,
-			)
-			flusher.Flush()
-
-			time.Sleep(5 * time.Second)
 		}
 	}
 }

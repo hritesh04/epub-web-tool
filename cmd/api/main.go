@@ -50,7 +50,7 @@ func main() {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST"},
+		AllowMethods:     []string{"GET", "POST", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type"},
 		AllowCredentials: true,
 	}))
@@ -77,10 +77,11 @@ func main() {
 	r.GET("/refresh",user.Refresh)
 	r.Use(AuthMiddleware())
 	r.GET("/epubs",epub.GetUserEpub)
+	r.DELETE("/epub/:id",epub.DeleteEpub)
 	r.GET("/upload", epub.GetPresignPostURL)
 	r.POST("/upload/:id", epub.FinishUpload)
 	r.GET("/progress/:id",chunk.Progress)
-	// r.GET("/status/:job_id", getWorkerStatus)
+	r.GET("/download/:id",epub.GetPresignTranslatedEpubLink)
 	port := os.Getenv("PORT")
 	r.Run(":"+port)
 }

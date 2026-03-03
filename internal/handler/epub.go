@@ -17,6 +17,7 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024
 
 type PresignUploadService interface {
 	GeneratePostObjectLink(ctx context.Context,key string) (*s3.PresignedPostRequest, error)
+	GenerateGetObjectLink(ctx context.Context, key string) (string,error)
 	Exists(ctx context.Context,key string) bool
 }
 
@@ -28,6 +29,7 @@ type EpubRepository interface {
 	Insert(ctx context.Context,epub *model.Epub) (*model.Epub,error)
 	GetAll(ctx context.Context,userID string) ([]*model.Epub,error)
 	GetByID(ctx context.Context,epubID string,userID string) (*model.Epub,error)
+	DeleteEpub(ctx context.Context, epubID string, userID string)(error)
 }
 
 type EpubController struct {
@@ -117,4 +119,53 @@ func (s *EpubController) GetUserEpub(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK,gin.H{"success":true,"data":epubs})	
+}
+
+func (s *EpubController) DeleteEpub(c *gin.Context) {
+	epubID := c.Param("id")
+	userID := c.Keys["userID"].(string)
+	if userID == "" {
+		log.Println("Error fetchin user epubs userID not found")
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
+		return
+	}
+	if epubID == "" {
+		log.Println("epubID not found in url param")
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Epub ID not found"})
+		return
+	}
+	if err := s.db.DeleteEpub(c.Request.Context(),epubID,userID);err != nil {
+		log.Println("Error deleteing user epubs:",err)
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Internal Server Error"})
+		return
+	}
+	c.JSON(http.StatusOK,gin.H{"success":true})	
+}
+
+func (s *EpubController) GetPresignTranslatedEpubLink(c *gin.Context) {
+	userID := c.Keys["userID"].(string)
+	if userID == "" {
+		log.Println("Error fetchin user epubs userID not found")
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
+		return
+	}
+	epubID := c.Param("id")
+	if epubID == "" {
+		log.Println("epubID not found in url param")
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Epub ID not found"})
+		return
+	}
+	epubs,err := s.db.GetByID(c.Request.Context(),epubID,userID)
+	if err != nil {
+		log.Println("Error fetching user epubs:",err)
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Internal Server Error"})
+		return
+	}
+	url,err := s.s3.GenerateGetObjectLink(c.Request.Context(),*epubs.ObjectKey)
+	if err != nil {
+		log.Println("Error generating presign get object link:",err)
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Internal Server Error"})
+		return
+	}
+	c.JSON(http.StatusOK,gin.H{"success":true,"url":url})	
 }

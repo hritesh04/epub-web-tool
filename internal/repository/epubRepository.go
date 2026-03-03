@@ -24,7 +24,7 @@ func NewEpubRepository(db *pgxpool.Pool) *EpubRepository{
 func (u *EpubRepository) Insert(ctx context.Context, data *model.Epub)(*model.Epub,error){
 	epub := new(model.Epub)
 	data.Id = uuid.NewString()
-	row := u.db.QueryRow(ctx,"INSERT INTO epubs (id,title,size,translate_to,user_id) VALUES($1,$2,$3,$4,$5) returning id,title,size,translate_to,status,created_at;",data.Id,data.Title,data.Size,data.TranslateTo,data.UserID)
+	row := u.db.QueryRow(ctx,"INSERT INTO epubs (id,title,size,translate_to,user_id,object_key) VALUES($1,$2,$3,$4,$5,$6) returning id,title,size,translate_to,status,created_at;",data.Id,data.Title,data.Size,data.TranslateTo,data.UserID,data.ObjectKey)
 
 	if err := row.Scan(&epub.Id,&epub.Title,&epub.Size,&epub.TranslateTo,&epub.Status,&epub.CreatedAt);err != nil {
 		log.Println("Error scanning db rows to struct")
@@ -51,10 +51,21 @@ func (u *EpubRepository) GetAll(ctx context.Context, userID string)([]*model.Epu
 
 func (u *EpubRepository) GetByID(ctx context.Context,epubID string, userID string)(*model.Epub,error){
 	epub := new(model.Epub)
-	if err := u.db.QueryRow(ctx,"SELECT status, chunk_count FROM epubs WHERE id=$1 AND user_id=$2",epubID,userID).Scan(&epub.Status,&epub.ChunkCount);err != nil {
+	if err := u.db.QueryRow(ctx,"SELECT status, chunk_count, object_key FROM epubs WHERE id=$1 AND user_id=$2",epubID,userID).Scan(&epub.Status,&epub.ChunkCount,&epub.ObjectKey);err != nil {
 		return epub,err
 	}
 	return epub,nil
+}
+
+func (u *EpubRepository) DeleteEpub(ctx context.Context,epubID string, userID string)(error){
+	row, err := u.db.Exec(ctx,"DELETE FROM epubs WHERE id=$1 AND user_id=$2",epubID,userID)
+	if err != nil {
+		return err
+	}
+	if row.RowsAffected() == 0 {
+		return fmt.Errorf("Failed to deleted epub not found")
+	}
+	return nil
 }
 
 
@@ -99,7 +110,6 @@ func (r *EpubRepository) AlreadyProcessed(ctx context.Context, id string) (bool,
 	`, id).Scan(&claimed)
 	
 	if err == pgx.ErrNoRows {
-		fmt.Println("HERE")
 		return true, nil
 	}
 
@@ -108,4 +118,27 @@ func (r *EpubRepository) AlreadyProcessed(ctx context.Context, id string) (bool,
 	}
 
 	return false, nil
+}
+
+func (r *EpubRepository) AlreadyCompiling(ctx context.Context, id string) (*model.Epub, error) {
+	epub := new(model.Epub) 
+
+	err := r.db.QueryRow(ctx, `
+		UPDATE epubs
+		SET status='compiling',
+		    updated_at=now()
+		WHERE id=$1
+		  AND (
+		        status='in-progress'
+		        OR
+		        (status='compiling' AND updated_at < now() - interval '5 minutes')
+		      )
+		RETURNING id,object_key;
+	`, id).Scan(&epub.Id,&epub.ObjectKey)
+
+	if err != nil {
+		return epub, err
+	}
+
+	return epub, nil
 }
