@@ -28,14 +28,16 @@ export default function Navbar({ user, onSignOut }: NavbarProps) {
             <div className="leading-none">
               <div className="text-sm font-semibold tracking-tight">EpubStudio</div>
               
-              {
-              // after editor
-              /* <div className="hidden text-[11px] text-muted-foreground sm:block">
+              {/* // after editor */}
+              {/* <div className="hidden text-[11px] text-muted-foreground sm:block">
                 Edit • Translate • Convert
               </div> */}
               <div className="hidden text-[11px] text-muted-foreground sm:block">
-                Translate
+                Edit • Translate
               </div>
+              {/* <div className="hidden text-[11px] text-muted-foreground sm:block">
+                Translate
+              </div> */}
             </div>
           </Link>
         </div>
@@ -51,20 +53,20 @@ export default function Navbar({ user, onSignOut }: NavbarProps) {
                 <span>Dashboard</span>
               </Link>
               {/* // after editor */}
-              {/* <Link
+              <Link
                 to="/editor"
                 className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
               >
                 <PenSquare className="h-3.5 w-3.5" />
                 <span>Editor</span>
-              </Link> */}
+              </Link>
             </>
           ) : (
             <>
             {/* // after editor */}
-              {/* <a className="text-muted-foreground hover:text-foreground" href="#features">
+              <a className="text-muted-foreground hover:text-foreground" href="#features">
                 Features
-              </a> */}
+              </a>
               <a className="text-muted-foreground hover:text-foreground" href="#workflow">
                 Workflow
               </a>

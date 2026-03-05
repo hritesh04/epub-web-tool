@@ -201,7 +201,7 @@ export default function Dashboard() {
         const finishRes = await api.post(`/upload/${uploadFieldValues?.key}`, {
           title: selectedFile.name,
           size: selectedFile.size,
-          key: uploadFieldValues?.key,
+          objectKey: uploadFieldValues?.key,
           translateTo: targetLanguage,
         })
         const resData = finishRes.data

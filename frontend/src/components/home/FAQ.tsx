@@ -103,7 +103,7 @@ export default function FAQ() {
         </div>
         <div className="flex gap-8">
           {/* // after editor */}
-          {/* <a href="#features" className="hover:text-primary transition-colors">Features</a> */}
+          <a href="#features" className="hover:text-primary transition-colors">Features</a>
           <a href="#workflow" className="hover:text-primary transition-colors">Workflow</a>
           <a href="#faq" className="hover:text-primary transition-colors">FAQ</a>
         </div>

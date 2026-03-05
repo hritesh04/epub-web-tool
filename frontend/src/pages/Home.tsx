@@ -20,7 +20,7 @@ export default function Home() {
       <main className="space-y-16 md:space-y-24 lg:space-y-28">
         <Hero />
         {/* // after editor */}
-        {/* <Features /> */}
+        <Features />
         <Workflow />
         <FAQ />
       </main>

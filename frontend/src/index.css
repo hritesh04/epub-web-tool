@@ -103,8 +103,31 @@
                 hsl(var(--background));
   }
 
+
   ::selection {
     background: hsl(var(--primary) / 0.18);
+  }
+
+  /* Custom scrollbar for a premium look */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.2);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.4);
+  }
+
+  /* Hide scrollbar on certain elements if needed */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 

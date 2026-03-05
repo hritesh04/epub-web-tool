@@ -15,8 +15,8 @@ const steps = [
     k: '02',
     title: 'Intelligent Processing',
     // after editor
-    // desc: 'Queue translations, batch-edit metadata, or normalize styles. We handle the heavy lifting in the background.',
-    desc: 'Queue translation. We handle the heavy lifting in the background.',
+    desc: 'Queue translations, batch-edit metadata, or normalize styles. We handle the heavy lifting in the background.',
+    // desc: 'Queue translation. We handle the heavy lifting in the background.',
     icon: Cpu,
     color: 'text-purple-500',
   },
@@ -24,8 +24,8 @@ const steps = [
     k: '03',
     title: 'Clean Export',
     // after editor
-    // desc: 'Download your polished book in multiple formats. Ready for any device.',
-    desc: 'Download your polished book. Ready for any device.',
+    desc: 'Download your polished book in multiple formats. Ready for any device.',
+    // desc: 'Download your polished book. Ready for any device.',
     icon: Download,
     color: 'text-emerald-500',
   },

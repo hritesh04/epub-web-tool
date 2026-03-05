@@ -62,12 +62,12 @@ export default function Hero() {
             The Ultimate Toolkit for <span className="text-primary italic">Perfect</span> EPUBs
           </motion.h1>
           {/* // after editor */}
-          {/* <motion.p 
+          <motion.p 
             variants={itemVariants}
             className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl leading-relaxed"
           >
             Professional-grade metadata editing, seamless translations, and high-fidelity conversions. Everything your digital library needs, in one elegant interface.
-          </motion.p> */}
+          </motion.p>
           <motion.p 
             variants={itemVariants}
             className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl leading-relaxed"
