@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import axios, { type AxiosProgressEvent } from 'axios'
 
 import api from '@/lib/api'

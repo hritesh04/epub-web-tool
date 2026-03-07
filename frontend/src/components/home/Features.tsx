@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Check, FileDown, FileUp, Languages, Tags, Zap } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 const containerVariants = {
   hidden: { opacity: 0 },
