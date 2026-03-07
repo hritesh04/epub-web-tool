@@ -32,12 +32,12 @@ function AppShell({
 
 function AppRoutes() {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const checkAuth = useCallback(async () => {
     try {
-      const response = await api.get('/auth',{timeout:200})
+      const response = await api.get('/auth')
       if (response.data.success) {
         setUser(response.data.data)
       }

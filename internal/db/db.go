@@ -11,7 +11,7 @@ import (
 )
 
 func New(url string) (*pgxpool.Pool,error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second) 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) 
 	defer cancel()
 
 	cfg, err := pgxpool.ParseConfig(url)
@@ -30,7 +30,7 @@ func New(url string) (*pgxpool.Pool,error) {
 		return nil, fmt.Errorf("failed to create pool: %w", err)
 	}
 
-	pingCtx, pingCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer pingCancel()
 	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
@@ -18,7 +19,8 @@ type RabbitMQZipReqPublisher struct {
 }
 
 func NewZipRequestPublisher(cfg config.Queue) *RabbitMQZipReqPublisher {
-	ctx := context.Background()
+	ctx,cancel := context.WithTimeout(context.Background(),time.Second*10)
+	defer cancel()
 	conn,err := rmq.Dial(ctx,cfg.URI(),nil)
 	if err != nil {
 		log.Fatal("Error connecting to rabbitmq:",err)

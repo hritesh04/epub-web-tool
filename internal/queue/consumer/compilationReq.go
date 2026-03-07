@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -17,7 +18,8 @@ type RabbitMQZipReqConsumer struct {
 }
 
 func NewRabbitMQZipReqConsumer(cfg config.Queue) *RabbitMQZipReqConsumer {
-	ctx := context.Background()
+	ctx,cancel := context.WithTimeout(context.Background(),time.Second*10)
+	defer cancel()
 	conn,err := rmq.Dial(ctx,cfg.URI(),nil)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error connecting to rabbitmq")
