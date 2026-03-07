@@ -1,7 +1,9 @@
 import cheerio, { load } from "cheerio";
 import { translate as tr } from "googletrans";
+import fs from "fs";
+import xml2js from "xml2js";
 
-export async function translate(path:string,html:string):Promise<string> {
+export async function translateHTML(path:string,html:string):Promise<string> {
     const $ = load(html);
     
     // Elements to translate
@@ -85,10 +87,67 @@ export async function translate(path:string,html:string):Promise<string> {
     $("[xml\\:lang]").attr("xml:lang", "en");
     
     return $.html();
+}
+
+export async function translateNCX(content:string): Promise<string> {
+  const parser = new xml2js.Parser();
+  const builder = new xml2js.Builder();
+
+  const result = await parser.parseStringPromise(content);
+
+  const textsToTranslate: string[] = [];
+  const textRefs: any[] = [];
+
+  function collect(navPoints: any[]) {
+    navPoints.forEach(nav => {
+      const text = nav.navLabel?.[0]?.text?.[0];
+
+      if (text) {
+        textsToTranslate.push(text);
+        textRefs.push(nav.navLabel[0].text);
+      }
+
+      if (nav.navPoint) {
+        collect(nav.navPoint);
+      }
+    });
   }
 
+  const navPoints = result.ncx.navMap[0].navPoint;
+  collect(navPoints);
 
-  async function translateBatch(textArray:string[], retries = 5):Promise<string[]> {
+  console.log(`Found ${textsToTranslate.length} TOC entries`);
+
+  if (textsToTranslate.length === 0) {
+    return content;
+  }
+
+  // batching (same style as your HTML translator)
+  const batchSize = 40;
+  const translatedTexts: string[] = [];
+
+  for (let i = 0; i < textsToTranslate.length; i += batchSize) {
+    const batch = textsToTranslate.slice(i, i + batchSize);
+
+    const batchResults = await translateBatch(batch);
+    translatedTexts.push(...batchResults);
+
+    if (i + batchSize < textsToTranslate.length) {
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+
+  console.log(`Applying ${translatedTexts.length} translations`);
+
+  translatedTexts.forEach((t, i) => {
+    textRefs[i][0] = t;
+  });
+
+  return builder.buildObject(result);
+}
+
+
+async function translateBatch(textArray:string[], retries = 5):Promise<string[]> {
     if (!textArray || textArray.length === 0) {
       return [];
     }

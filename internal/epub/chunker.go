@@ -7,10 +7,11 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/google/uuid"
 	"github.com/hritesh04/epub-web-tool/internal/model"
@@ -52,7 +53,7 @@ func (c *Chunker) Chunk(ctx context.Context, file *os.File, msg queue.Translatio
 	if err != nil {
 		return chunks,err
 	}
-	log.Println("OPF RootDir:",pkg.RootDir)
+	log.Info().Str("root_dir", pkg.RootDir).Msg("OPF details retrieved")
 	var chunk queue.ChunkMsg
 	chunk.EpubID=msg.EpubID
 	chunk.ChunkID=1
@@ -62,24 +63,24 @@ func (c *Chunker) Chunk(ctx context.Context, file *os.File, msg queue.Translatio
 
 	for _,item := range pkg.Manifest.Items {
 		manifestItem := item
-		if manifestItem.MediaType == "application/xhtml+xml"{
+		if manifestItem.MediaType == "application/xhtml+xml" || manifestItem.MediaType == "application/x-dtbncx+xml"{
 			filePath := path.Join(pkg.RootDir,manifestItem.Href)
 			html,err := reader.Open(filePath)
 			if err != nil {
-				log.Println("Error opening html","file:",manifestItem.Href,"error",err)
+				log.Error().Err(err).Str("file", manifestItem.Href).Msg("Error opening html")
 				continue
 			}
 
 			data, err := io.ReadAll(html)
 			if err != nil {
-				log.Println("Read error:", err)
+				log.Error().Err(err).Msg("Read error")
 			}
 			html.Close()
 
 			dataReader := bytes.NewReader(data)
 			_, err = dataReader.Seek(0, io.SeekStart)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal().Err(err).Msg("Seek error")
 			}
 			
 			if chunk.Count == MAX_FILE_PER_CHUNK {
@@ -110,7 +111,6 @@ func (c *Chunker) Chunk(ctx context.Context, file *os.File, msg queue.Translatio
 	close(channel)
 	wg.Wait()
 	if err := c.db.InsertChunk(ctx,chunkDTO); err != nil {
-		log.Println("Error inserting chunks to db:",err)
 		return chunks,err
 	}
 	
@@ -122,7 +122,7 @@ func (c *Chunker) getOpfDetails(file *os.File)(*zip.Reader,Package,error){
 	stat,_ := file.Stat()	
 	reader, err := zip.NewReader(file,stat.Size())
 	if err != nil {
-		log.Println("Error creating zip reader:",err)
+		log.Error().Err(err).Msg("Error creating zip reader")
 		return reader,pkg,err
 	}
 	

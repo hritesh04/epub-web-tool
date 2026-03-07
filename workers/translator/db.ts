@@ -4,23 +4,29 @@ export class DB {
   private client: Pool
   private url:string
   constructor(url: string) {
-    this.client = new Pool({ connectionString: url })
+    this.client = new Pool({ connectionString: url,ssl: {
+      rejectUnauthorized: false
+    } })
     this.url=url
   }
 
   async connect(){
-    if(!this.client) this.client = new Pool({ connectionString: this.url })
+    if(!this.client) this.client = new Pool({ connectionString: this.url,ssl: {
+      rejectUnauthorized: false
+    } })
     await this.client.connect()
   }
   
   async alreadyTranslated(chunkID:string,epubID:string){
     try{
-      const result = await this.client.query("UPDATE chunks SET status='processing', updated_at=now() WHERE chunk_id=$1 AND epub_id=$2 AND ( status='queued' OR (status='processing' AND updated_at < now() - interval '5 minutes')) RETURNING chunk_id;",[chunkID,epubID])
+      const result = await this.client.query("UPDATE chunks SET status='processing', updated_at=now() WHERE chunk_id=$1 AND epub_id=$2 AND ( status='queued' OR status='failed' OR (status='processing' AND updated_at < now() - interval '5 minutes')) RETURNING chunk_id;",[chunkID,epubID])
       if (result.rowCount == 0) {
+        console.log("Error updating chunk status")
         return {chunk_count:-1}
       }
       const row = await this.client.query("SELECT chunk_count FROM epubs WHERE id=$1",[epubID])
       if (row.rowCount==0){
+        console.log("Error getting epub chunk count")
         return {chunk_count:-1}
       }
       console.log(row.rows)

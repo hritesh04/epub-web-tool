@@ -1,11 +1,8 @@
 import amqplib from "amqplib";
 import { loadConfig } from "./config";
-import { translate } from "./translation";
+import { translateHTML, translateNCX } from "./translation";
 import { S3Service } from "./s3";
 import { DB } from "./db";
-import fs from "fs/promises"
-import { join } from "path";
-import { tmpdir } from "os";
 
 export type chunkMsg = {
     epubID: string;
@@ -60,9 +57,15 @@ async function main(){
                     if(!objectData){
                         console.log("object not found")
                         db.updateChunkStatus(data.epubID,data.chunkID,'failed','object not found')
+                        ch.nack(msg)
                         continue
                     }
-                    const translatedText = await translate(object_key,objectData);
+                    let translatedText;
+                    if (object_key.endsWith("html")){
+                        translatedText = await translateHTML(object_key,objectData);
+                    }else{
+                        translatedText = await translateNCX(objectData);
+                    }
                     await s3.uploadTranslatedChunk(object_key,translatedText)
                     console.log("successfully translated:", object_key);
                     await db.updateChunkStatus(data.epubID,data.chunkID,'completed','')
@@ -70,6 +73,8 @@ async function main(){
                 }catch(err:any){
                     console.log(`Error translating epub ${data.epubID} chunk ${data.chunkID} with error: ${err.message}`);
                     db.updateChunkStatus(data.epubID,data.chunkID,'failed',err.message)
+                    ch.nack(msg)
+                    continue
                 }
             }
             if (counter == data.count) {

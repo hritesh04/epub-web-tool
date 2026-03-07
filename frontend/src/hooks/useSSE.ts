@@ -13,7 +13,7 @@ export function useSSE(bookID: string, initialStatus: string) {
 
   useEffect(() => {
     // Only connect if status is in-progress or compiling
-    if (status !== 'in-progress' && status !== 'compiling') {
+    if (status !== 'in-progress' && status !== 'compiling' && status !== 'queued') {
       if (timerRef.current) clearTimeout(timerRef.current)
       if (activeControllerRef.current) activeControllerRef.current.abort()
       return;

@@ -40,7 +40,7 @@ export function loadConfig():config{
     
     const s3Endpoint = process.env.S3_ENDPOINT || "http://localhost:9000"
     const s3Key = process.env.S3_KEY || "minioadmin"
-    const s3Password = process.env.S3_ENDPOINT || "minioadmin" 
+    const s3Password = process.env.S3_PASSWORD || "minioadmin" 
     const s3Region = process.env.S3_REGION || "us-west-2"
     const s3TranslationBucket= process.env.S3_TRANSLATED_BUCKET || "translations"
     const s3ChunkBucket= process.env.S3_CHUNK_BUCKET || "chunks"
