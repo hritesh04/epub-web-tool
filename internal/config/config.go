@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -31,22 +30,35 @@ func (q *Queue) URI() string {
 	return fmt.Sprintf("amqp://%s:%s@%s",q.User,q.Password,q.Endpoint)
 }
 
+type OpenObserve struct {
+	Endpoint string
+	User string
+	Password string
+	Organization string
+}
+
 type DB struct {
 	Url string
 }
 
 type Config struct {
+	Env  string
 	Port string
 	DB DB
 	S3 S3
 	Queue Queue
+	OpenObserve OpenObserve
 }
 
 func LoadConfig() Config {
 	var cfg Config
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
+		fmt.Fprintf(os.Stderr, "Error loading .env file: %s\n", err)
+	}
+	cfg.Env = os.Getenv("GO_ENV")
+	if cfg.Env == "" {
+		cfg.Env = "development"
 	}
 	cfg.Port = os.Getenv("PORT")
 	if cfg.Port == "" {
@@ -114,5 +126,24 @@ func LoadConfig() Config {
 	if cfg.Queue.ZipQueue == "" {
 		cfg.Queue.ZipQueue="zip"
 	}
+
+	cfg.OpenObserve.Endpoint = os.Getenv("OPENOBSERVE_ENDPOINT")
+	cfg.OpenObserve.User = os.Getenv("OPENOBSERVE_USER")
+	cfg.OpenObserve.Password = os.Getenv("OPENOBSERVE_PASSWORD")
+	cfg.OpenObserve.Organization = os.Getenv("OPENOBSERVE_ORGANIZATION")
+
+	if cfg.OpenObserve.Endpoint == "" {
+		cfg.OpenObserve.Endpoint = "localhost:5080"
+	}
+	if cfg.OpenObserve.User == "" {
+		cfg.OpenObserve.User = "root@example.com"
+	}
+	if cfg.OpenObserve.Password == "" {
+		cfg.OpenObserve.Password = "password"
+	}
+	if cfg.OpenObserve.Organization == "" {
+		cfg.OpenObserve.Organization = "default"
+	}
+
 	return cfg
 }

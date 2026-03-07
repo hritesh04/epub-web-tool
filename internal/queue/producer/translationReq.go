@@ -8,6 +8,8 @@ import (
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type RabbitMQTranslationReqPublisher struct {
@@ -51,6 +53,10 @@ if err != nil {
 }
 
 func (r *RabbitMQTranslationReqPublisher) PublishTranslationReq(ctx context.Context,data queue.TranslationMsg)error{
+	tracer := otel.Tracer("publisher")
+	ctx, span := tracer.Start(ctx, "PublishTranslationReq", trace.WithSpanKind(trace.SpanKindProducer))
+	defer span.End()
+
 	dataByte, err := json.Marshal(data)
 	if err != nil {
 		log.Println("Error marshalling message:",err)
@@ -64,7 +70,9 @@ func (r *RabbitMQTranslationReqPublisher) PublishTranslationReq(ctx context.Cont
 	)
 	if err != nil {
 		log.Println("Error creating message for queue:",err)
+		return err
 	}
+
 	_,err = r.publisher.Publish(ctx,msg)
 	if err != nil {
 		log.Println("Error publishing message to queue:",err)

@@ -2,8 +2,9 @@ package s3
 
 import (
 	"context"
-	"log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -86,7 +87,7 @@ func (s *S3Presign) Exists(ctx context.Context, key string)bool{
 		Key: &key,
 	})
 	if err != nil {
-		log.Println("Error checking head of an object:",err)
+		log.Error().Err(err).Str("key", key).Msg("Error checking head of an object")
 		return false
 	}
 	return true

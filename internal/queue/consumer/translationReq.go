@@ -3,7 +3,8 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"log"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
@@ -19,18 +20,18 @@ func NewTranslationReqConsumer(cfg config.Queue) *RabbitMQTranslationReqConsumer
 	ctx := context.Background()
 	conn,err := rmq.Dial(ctx,cfg.URI(),nil)
 	if err != nil {
-		log.Fatal("Error connecting to rabbitmq:",err)
+		log.Fatal().Err(err).Msg("Error connecting to rabbitmq")
 	}
 	management := conn.Management()
 	_, err = management.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
 			Name: cfg.ChunkerQueue,
 	})
 	if err != nil {
-		log.Fatal("Error declaring queue:",err)
+		log.Fatal().Err(err).Msg("Error declaring queue")
 	}
 	consumer,err := conn.NewConsumer(ctx,cfg.ChunkerQueue,nil)
 	if err != nil {
-		log.Fatal("Error creating publisher:",err)
+		log.Fatal().Err(err).Msg("Error creating publisher")
 	}
 	return &RabbitMQTranslationReqConsumer{
 		consumer:consumer,
@@ -45,7 +46,7 @@ func (r *RabbitMQTranslationReqConsumer) Consume(ctx context.Context)(rmq.IDeliv
 		return item,msg,err
 	}
 	if err := json.Unmarshal(item.Message().GetData(),&msg);err != nil {
-		log.Println("Error unmarshalling queue msg:",err)
+		log.Error().Err(err).Msg("Error unmarshalling queue msg")
 		return item,msg,err
 	}
 	return item,msg,nil

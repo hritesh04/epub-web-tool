@@ -11,10 +11,10 @@ type Epub struct {
 	TranslateTo string `json:"translateTo" db:"translate_to"`
 	Status string `json:"status" db:"status"`
 	UserID string `json:"-" db:"user_id"`
-	ChunkCount *int `json:"-" db:"chunk_count"`
-	ObjectKey *string `json:"objectKey" db:"object_key"`
-	CreatedAt *time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt *time.Time `json:"-" db:"updated_at"`
+	ChunkCount int `json:"-" db:"chunk_count"`
+	ObjectKey string `json:"objectKey" db:"object_key"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time `json:"-" db:"updated_at"`
 }
 
 type Chunk struct {
@@ -26,5 +26,6 @@ type Chunk struct {
 	Status string `json:"status" db:"status"`
 	RetryCount int `json:"retryCount" db:"retry_count"`
 	ErrorMsg string `json:"errorMsg" db:"error_msg"`
-	CreatedAt *time.Time `json:"createdAt" db:"created_at"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time `json:"-" db:"updated_at"`
 }

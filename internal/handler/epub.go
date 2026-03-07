@@ -3,8 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
@@ -47,7 +48,7 @@ func NewEpubHandler(db EpubRepository,s3 PresignUploadService,queue PublisherSer
 }
 
 func (s *EpubController) GetPresignPostURL(c *gin.Context) {
-	requestID := c.GetHeader("X-Request-Id")
+	requestID := c.GetString("requestID")
 	if requestID == "" {
 		requestID = uuid.New().String()
 	}
@@ -55,7 +56,7 @@ func (s *EpubController) GetPresignPostURL(c *gin.Context) {
 	key := fmt.Sprintf("%s.epub",requestID)
 	presignPostUrl, err := s.s3.GeneratePostObjectLink(c.Request.Context(),key)
 	if err != nil {
-		log.Println("Error uplaoding epub:",err)
+		log.Error().Err(err).Str("request_id", requestID).Msg("Error generating presign post URL")
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message":"Internal Server Error"})
 		return
 	}
@@ -67,25 +68,25 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 	data := new(model.Epub)
 	key := c.Param("id")
 	if key == "" {
-		log.Println("Empty key for finsh upload")
+		log.Warn().Msg("Empty key for finish upload")
 		c.JSON(http.StatusBadRequest, gin.H{"success":false,"message":"Empty key in params"})
 		return
 	}
 	data.UserID = c.Keys["userID"].(string)
 	if err := c.ShouldBind(&data); err != nil {
-		log.Println("Error unmarshalling request body")
+		log.Warn().Err(err).Msg("Error unmarshalling request body")
 		c.JSON(http.StatusBadRequest, gin.H{"success":false,"message":"Invalid request payload"})
 		return
 	}
 
 	if exists := s.s3.Exists(c.Request.Context(),key); !exists {
-		log.Println("Object not found in s3:",key)
+		log.Warn().Str("key", key).Msg("Object not found in s3")
 		c.JSON(http.StatusNotFound, gin.H{"success":false,"message":"Object Not Found"})
 		return
 	}
 	epub,err := s.db.Insert(c.Request.Context(),data)
 	if err != nil {
-		log.Println("Error inserting epub into db:",err)
+		log.Error().Err(err).Msg("Error inserting epub into db")
 		c.JSON(http.StatusInternalServerError, gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
@@ -97,7 +98,7 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 	}
 
 	if err := s.queue.PublishTranslationReq(c.Request.Context(),body); err != nil {
-		log.Println("Error publishing message:",err)
+		log.Error().Err(err).Msg("Error publishing message")
 		c.JSON(http.StatusOK, gin.H{"success": false, "message":"Error publishing message"})
 		return
 	}
@@ -108,13 +109,13 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 func (s *EpubController) GetUserEpub(c *gin.Context) {
 	userID := c.Keys["userID"].(string)
 	if userID == "" {
-		log.Println("Error fetchin user epubs userID not found")
+		log.Warn().Msg("Error fetching user epubs: userID not found")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
 		return
 	}
 	epubs,err := s.db.GetAll(c.Request.Context(),userID)
 	if err != nil {
-		log.Println("Error fetching user epubs:",err)
+		log.Error().Err(err).Msg("Error fetching user epubs")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Internal Server Error"})
 		return
 	}
@@ -125,17 +126,17 @@ func (s *EpubController) DeleteEpub(c *gin.Context) {
 	epubID := c.Param("id")
 	userID := c.Keys["userID"].(string)
 	if userID == "" {
-		log.Println("Error fetchin user epubs userID not found")
+		log.Warn().Msg("Error fetching user epubs: userID not found")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
 		return
 	}
 	if epubID == "" {
-		log.Println("epubID not found in url param")
+		log.Warn().Msg("epubID not found in url param")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Epub ID not found"})
 		return
 	}
 	if err := s.db.DeleteEpub(c.Request.Context(),epubID,userID);err != nil {
-		log.Println("Error deleteing user epubs:",err)
+		log.Error().Err(err).Str("epub_id", epubID).Str("user_id", userID).Msg("Error deleting user epub")
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Internal Server Error"})
 		return
 	}
@@ -145,25 +146,25 @@ func (s *EpubController) DeleteEpub(c *gin.Context) {
 func (s *EpubController) GetPresignTranslatedEpubLink(c *gin.Context) {
 	userID := c.Keys["userID"].(string)
 	if userID == "" {
-		log.Println("Error fetchin user epubs userID not found")
+		log.Warn().Msg("Error fetching user epubs: userID not found")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
 		return
 	}
 	epubID := c.Param("id")
 	if epubID == "" {
-		log.Println("epubID not found in url param")
+		log.Warn().Msg("epubID not found in url param")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Epub ID not found"})
 		return
 	}
 	epubs,err := s.db.GetByID(c.Request.Context(),epubID,userID)
 	if err != nil {
-		log.Println("Error fetching user epubs:",err)
+		log.Error().Err(err).Msg("Error fetching user epubs")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Internal Server Error"})
 		return
 	}
-	url,err := s.s3.GenerateGetObjectLink(c.Request.Context(),*epubs.ObjectKey)
+	url,err := s.s3.GenerateGetObjectLink(c.Request.Context(),epubs.ObjectKey)
 	if err != nil {
-		log.Println("Error generating presign get object link:",err)
+		log.Error().Err(err).Msg("Error generating presign get object link")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Internal Server Error"})
 		return
 	}

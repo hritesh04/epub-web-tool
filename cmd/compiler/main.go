@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/db"
@@ -19,9 +21,16 @@ import (
 func main(){
 	ctx := context.Background()
 	cfg := config.LoadConfig()
+
+	// Configure zerolog
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	if cfg.Env == "development" {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	}
+
 	database, err := db.New(cfg.DB.Url)
 	if err != nil {
-		log.Println("Error creating db connection:",err)
+		log.Fatal().Err(err).Msg("Error creating db connection")
 	}
 	downloder := s3.NewDownloader(cfg.S3)
 	uploader := s3.NewUploader(cfg.S3)
@@ -32,36 +41,36 @@ func main(){
 
 	msg,data,err := zipQueue.Consume(ctx)
 	if err != nil {
-		log.Println("Error consuming from queue:",err)
+		log.Error().Err(err).Msg("Error consuming from queue")
 		return
 	}
 	info, err := epubRepo.AlreadyCompiling(ctx,data.EpubID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			log.Println("Error checking epub compilation status no rows found:",err)
+			log.Warn().Err(err).Msg("Error checking epub compilation status: no rows found")
 			return 
 		}
-		log.Println("Error checking if compiling request is proccessed for epub:",data.EpubID,"error:",err)
+		log.Error().Err(err).Str("epub_id", data.EpubID).Msg("Error checking if compiling request is processed")
 		msg.Requeue(ctx)
 		return
 	}
-	log.Println("Compiling object key:",*info.ObjectKey)
+	log.Info().Str("object_key", info.ObjectKey).Msg("Compiling object")
 
-	if info.ObjectKey == nil {
+	if info.ObjectKey == "" {
 		msg.Accept(ctx)
 		return
 	}
 
-	file, err := downloder.Download(ctx,*info.ObjectKey)
+	file, err := downloder.Download(ctx,info.ObjectKey)
 	if err != nil {
-		log.Println("Error downloading object:",*info.ObjectKey,"error",err)
+		log.Error().Err(err).Str("object_key", info.ObjectKey).Msg("Error downloading object")
 		msg.Requeue(ctx)
 		return
 	}
 
 	stats, err := file.Stat()
 	if err != nil {
-		log.Println("Error getting file stats:", err)
+		log.Error().Err(err).Msg("Error getting file stats")
 		msg.Requeue(ctx)
 		return
 	}
@@ -71,49 +80,49 @@ func main(){
 
 	keys, err := compiler.Unzip(info.Id,filepath.Join(os.TempDir(),stats.Name()), extractPath)
 	if err != nil {
-		log.Println("Error unzipping epub:", err)
+		log.Error().Err(err).Msg("Error unzipping epub")
 		msg.Requeue(ctx)
 		return
 	}
 	file.Close()
 	if err := downloder.DownloadTranslatedChunks(ctx,info.Id,extractPath);err != nil {
-		log.Println("Error downloading translated chunks:",err)
+		log.Error().Err(err).Msg("Error downloading translated chunks")
 	}
 
 	newEpub := filepath.Join(os.TempDir(),epubName+"_translated.epub")
 
-	log.Println("Creating new translated epub:",newEpub)
+	log.Info().Str("path", newEpub).Msg("Creating new translated epub")
 
 	if err := compiler.ZipToEpub(extractPath,newEpub);err != nil {
-		log.Println("Error ziping translated chunks:",err)
+		log.Error().Err(err).Msg("Error zipping translated chunks")
 		msg.Requeue(ctx)
 		return
 	}
 	newEpubFile, err := os.Open(newEpub)
 	if err != nil {
-		log.Println("Error opening new epub file",err)
+		log.Error().Err(err).Msg("Error opening new epub file")
 		msg.Requeue(ctx)
 		return
 	}
-	log.Println("Uploading new translated epub:",newEpub)
-	if err := uploader.UploadFile(ctx,*info.ObjectKey,newEpubFile); err != nil {
-		log.Println("Error uploading new epub:",err)
+	log.Info().Str("path", newEpub).Msg("Uploading new translated epub")
+	if err := uploader.UploadFile(ctx,info.ObjectKey,newEpubFile); err != nil {
+		log.Error().Err(err).Msg("Error uploading new epub")
 		msg.Requeue(ctx)
 		return
 	}
 	newEpubFile.Close()
 	if err := remover.RemoveChunksAndTranslatedChunks(ctx,keys); err != nil {
-		log.Println("Error removing chunks and translated chunks:",err)
+		log.Error().Err(err).Msg("Error removing chunks and translated chunks")
 		msg.Requeue(ctx)
 		return
 	}
-	log.Println("Removing translated epub:",newEpub)
+	log.Info().Str("path", newEpub).Msg("Removing translated epub")
 	if err := os.Remove(newEpub);err != nil {
-		log.Println("Error removing translated epub:",err)
+		log.Error().Err(err).Msg("Error removing translated epub")
 		msg.Requeue(ctx)
 	}
 	if err := epubRepo.UpdateStatus(ctx,info.Id,"completed"); err != nil {
-		log.Println("Error updating epub status:",err)
+		log.Error().Err(err).Msg("Error updating epub status")
 	}
 	msg.Accept(ctx)
 }

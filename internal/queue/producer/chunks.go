@@ -8,6 +8,8 @@ import (
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type RabbitMQChunkPublisher struct {
@@ -51,11 +53,15 @@ if err != nil {
 }
 
 func (r *RabbitMQChunkPublisher) PublishFileChunks(ctx context.Context,data []queue.ChunkMsg)error{
+	tracer := otel.Tracer("publisher")
 	for _,item := range data{
+		ctx, span := tracer.Start(ctx, "PublishFileChunks", trace.WithSpanKind(trace.SpanKindProducer))
+		
 		chunk := item
 		dataByte, err := json.Marshal(chunk)
 		if err != nil {
 			log.Println("Error marshalling message:",err)
+			span.End()
 			return err
 		}
 		msg, err := rmq.NewMessageWithAddress(
@@ -66,12 +72,17 @@ func (r *RabbitMQChunkPublisher) PublishFileChunks(ctx context.Context,data []qu
 		)
 		if err != nil {
 			log.Println("Error creating message for queue:",err)
+			span.End()
+			return err
 		}
+
 		_,err = r.publisher.Publish(ctx,msg)
 		if err != nil {
 			log.Println("Error publishing message to queue:",err)
+			span.End()
 			return err
 		}
+		span.End()
 	}
 	return nil
 }

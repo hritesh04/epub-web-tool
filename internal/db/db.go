@@ -3,8 +3,9 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -15,7 +16,7 @@ func New(url string) (*pgxpool.Pool,error) {
 
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
-		log.Fatalf("failed to parse db config: %v", err)
+		log.Fatal().Err(err).Msg("failed to parse db config")
 	}
 
 	cfg.MinConns = 1

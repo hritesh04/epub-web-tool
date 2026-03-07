@@ -3,9 +3,10 @@ package handler
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -64,16 +65,15 @@ func (s *ChunkController) Progress(c *gin.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Client disconnected: %s", epubID)
+			log.Info().Str("epub_id", epubID).Msg("Client disconnected")
 			return
 		case <-heartbeat.C:
-			// Send heartbeat comment to keep connection alive
 			fmt.Fprintf(c.Writer, ": heartbeat\n\n")
 			flusher.Flush()
 		case <-ticker.C:
 			count, err := s.chunk.EpubChunkStatus(ctx, epubID)
 			if err != nil {
-				log.Printf("Error checking status for %s: %v", epubID, err)
+				log.Error().Err(err).Str("epub_id", epubID).Msg("Error checking status")
 				return
 			}
 
@@ -82,11 +82,11 @@ func (s *ChunkController) Progress(c *gin.Context) {
 				
 				status := "in-progress"
 				percent := 0
-				if epub.ChunkCount != nil && *epub.ChunkCount > 0 {
-					percent = (count * 100) / *epub.ChunkCount
+				if epub.ChunkCount > 0 {
+					percent = (count * 100) / epub.ChunkCount
 				}
 
-				if epub.ChunkCount != nil && count >= *epub.ChunkCount {
+				if count >= epub.ChunkCount {
 					status = "finished"
 					percent = 100
 				}

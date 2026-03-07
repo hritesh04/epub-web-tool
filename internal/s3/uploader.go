@@ -3,8 +3,9 @@ package s3
 import (
 	"context"
 	"io"
-	"log"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -66,10 +67,10 @@ func (s *S3Uploader) UploadConcurently(ctx context.Context) (chan ChunkObject,*s
 			defer wg.Done()
 			for chItem := range channel {
 				item := chItem
-				log.Println(item)
+				log.Debug().Str("key", item.Key).Msg("Uploading chunk")
 				_, err := s.s3.PutObject(ctx,&s3.PutObjectInput{Key: &item.Key,Bucket:&s.cfg.ChunkBucket,Body:item.Reader})
 				if err != nil {
-					log.Println("Error uploading chunk to s3:",err)
+					log.Error().Err(err).Str("key", item.Key).Msg("Error uploading chunk to s3")
 				}
 			}
 		}()

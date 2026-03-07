@@ -35,11 +35,11 @@ func (u *ChunkRepository) InsertChunk(ctx context.Context,chunks []model.Chunk)(
 	rows, err := u.db.CopyFrom(ctx,pgx.Identifier{"chunks"},[]string{"id","epub_id","chunk_id","object_key","chapter_path"},pgx.CopyFromSlice(len(chunks),func(i int) ([]any, error) {
 		return []any{chunks[i].Id,chunks[i].EpubID,chunks[i].ChunkID,chunks[i].ObjectKey,chunks[i].ChapterPath},nil
 	}))
-	if rows == 0 {
-		return fmt.Errorf("Error inserting chunks to db")
-	}
 	if err != nil {
 		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("Error inserting chunks to db")
 	}
 	return nil
 }

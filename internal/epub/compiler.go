@@ -4,10 +4,11 @@ import (
 	"archive/zip"
 	"context"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -71,7 +72,7 @@ func (c *Compiler) Unzip(key string, src string, dest string) ([]types.ObjectIde
 	}
 
 	if err := os.Remove(src);err != nil {
-		log.Println("Error deleting epub file:",src)
+		log.Error().Err(err).Str("file", src).Msg("Error deleting epub file")
 	}
 	return keys,nil
 }
@@ -154,7 +155,7 @@ func (c *Compiler)ZipToEpub(sourceDir, outputFile string) error {
 		return err
 	})
 	if err := os.RemoveAll(sourceDir); err != nil {
-		log.Println("Error removing unziped directory:",err)
+		log.Error().Err(err).Msg("Error removing unzipped directory")
 		return err
 	}
 	return err
