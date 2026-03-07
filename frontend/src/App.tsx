@@ -37,7 +37,7 @@ function AppRoutes() {
 
   const checkAuth = useCallback(async () => {
     try {
-      const response = await api.get('/auth')
+      const response = await api.get('/auth',{timeout:200})
       if (response.data.success) {
         setUser(response.data.data)
       }

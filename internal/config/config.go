@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog/log"
 )
 
 type S3 struct {
@@ -54,7 +55,7 @@ func LoadConfig() Config {
 	var cfg Config
 	err := godotenv.Load()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading .env file: %s\n", err)
+		log.Warn().Err(err).Msg("Error loading .env file")
 	}
 	cfg.Env = os.Getenv("GO_ENV")
 	if cfg.Env == "" {
