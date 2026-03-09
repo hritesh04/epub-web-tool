@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -14,6 +15,7 @@ import (
 
 type S3Presign struct {
 	s3 *s3.Client
+	presignClient *s3.PresignClient
 	cfg config.S3
 }
 
@@ -30,10 +32,25 @@ func NewPresignUploadS3Client(cfg config.S3)*S3Presign{
 		),
 	},func(o *s3.Options) {
 		o.UsePathStyle=true
-		ignoreSigningHeaders(o, []string{"Accept-Encoding"})
+		if strings.Contains(cfg.Endpoint, cfg.Endpoint) {
+			ignoreSigningHeaders(o, []string{"Accept-Encoding"})
+		}
 	})
+	presignClient := s3.NewPresignClient(s3.New(s3.Options{
+		BaseEndpoint: &cfg.Endpoint,
+		Region: cfg.Region,
+		Credentials: aws.NewCredentialsCache(
+			credentials.NewStaticCredentialsProvider(
+				cfg.Key,
+				cfg.Password,
+				"",
+			),
+		),
+		UsePathStyle: true,
+	}))
 	return &S3Presign{
 		s3: client,
+		presignClient: presignClient,
 		cfg:cfg,
 	}
 }
@@ -42,16 +59,14 @@ func (s *S3Presign) GeneratePostObjectLink(
     ctx context.Context,
     key string,
 ) (*s3.PresignedPostRequest, error) {
-
-    presignClient := s3.NewPresignClient(s.s3)
-
-    req, err := presignClient.PresignPostObject(ctx, &s3.PutObjectInput{
+    
+	req, err := s.presignClient.PresignPostObject(ctx, &s3.PutObjectInput{
         Bucket: aws.String(s.cfg.EpubBucket),
         Key:    aws.String(key),
     }, func(opts *s3.PresignPostOptions) {
 
         opts.Expires = 5 * time.Minute
-
+		
         opts.Conditions = []interface{}{
             map[string]string{"bucket": s.cfg.EpubBucket},
             map[string]string{"key": key},
@@ -70,8 +85,8 @@ func (s *S3Presign) GeneratePostObjectLink(
 }
 
 func (s *S3Presign) GenerateGetObjectLink(ctx context.Context, key string) (string,error) {
-	presignClient := s3.NewPresignClient(s.s3)
-	res, err := presignClient.PresignGetObject(ctx,&s3.GetObjectInput{
+
+	res, err := s.presignClient.PresignGetObject(ctx,&s3.GetObjectInput{
 		Bucket: &s.cfg.EpubBucket,
 		Key: &key,
 	}, func(opts *s3.PresignOptions) {
