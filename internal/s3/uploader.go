@@ -25,7 +25,7 @@ type S3Uploader struct {
 }
 
 func NewUploader(cfg config.S3) *S3Uploader{
-	client := s3.New(s3.Options{
+	client := s3.NewFromConfig(aws.Config{
 		BaseEndpoint: &cfg.Endpoint,
 		Region: cfg.Region,
 		Credentials: aws.NewCredentialsCache(
@@ -35,7 +35,9 @@ func NewUploader(cfg config.S3) *S3Uploader{
 				"",
 			),
 		),
-		UsePathStyle: true,
+	},func(o *s3.Options) {
+		o.UsePathStyle=true
+		ignoreSigningHeaders(o, []string{"Accept-Encoding"})
 	})
 	return &S3Uploader{
 		s3: client,

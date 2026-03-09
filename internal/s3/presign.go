@@ -18,7 +18,7 @@ type S3Presign struct {
 }
 
 func NewPresignUploadS3Client(cfg config.S3)*S3Presign{
-	client := s3.New(s3.Options{
+	client := s3.NewFromConfig(aws.Config{
 		BaseEndpoint: &cfg.Endpoint,
 		Region: cfg.Region,
 		Credentials: aws.NewCredentialsCache(
@@ -28,7 +28,9 @@ func NewPresignUploadS3Client(cfg config.S3)*S3Presign{
 				"",
 			),
 		),
-		UsePathStyle: true,
+	},func(o *s3.Options) {
+		o.UsePathStyle=true
+		ignoreSigningHeaders(o, []string{"Accept-Encoding"})
 	})
 	return &S3Presign{
 		s3: client,
