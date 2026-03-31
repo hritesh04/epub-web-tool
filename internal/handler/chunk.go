@@ -29,7 +29,7 @@ func NewChunkHandler(chunk ChunkRepository,epub EpubRepository) *ChunkController
 
 func (s *ChunkController) Progress(c *gin.Context) {
 	epubID := c.Param("id")
-	userID := c.Keys["userID"].(string)
+	userID := c.GetString("userID")
 
 	epub, err := s.epub.GetByID(c.Request.Context(), epubID, userID)
 	if err != nil {

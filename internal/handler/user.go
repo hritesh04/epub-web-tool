@@ -48,13 +48,13 @@ func (u *UserHandler) SignIn(c *gin.Context){
 	}
 	if user.ID == "" {
 		log.Warn().Str("email", data.Email).Msg("User does not exist")
-		c.JSON(http.StatusUnauthorized,gin.H{"success":true,"message":"Invalid email or password"})
+		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid email or password"})
 		return
 	}
 
 	if match := utils.CheckHash(data.Password,user.Password); !match {
 		log.Warn().Str("email", data.Email).Msg("Incorrect password")
-		c.JSON(http.StatusOK,gin.H{"success":true,"message":"Invalid email or password"})
+		c.JSON(http.StatusOK,gin.H{"success":false,"message":"Invalid email or password"})
 		return
 	}
 
@@ -210,7 +210,7 @@ func (u *UserHandler) Refresh(c *gin.Context){
 }
 
 func (u *UserHandler) Auth(c *gin.Context) {
-	userID := c.Keys["userID"].(string)
+	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 		return

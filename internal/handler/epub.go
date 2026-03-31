@@ -52,8 +52,13 @@ func (s *EpubController) GetPresignPostURL(c *gin.Context) {
 	if requestID == "" {
 		requestID = uuid.New().String()
 	}
-
-	key := fmt.Sprintf("%s.epub",requestID)
+	userID := c.GetString("userID")
+	if userID == "" {
+		log.Warn().Msg("Error fetching user epubs: userID not found")
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized user"})
+		return
+	}
+	key := fmt.Sprintf("%s/%s.epub", userID, requestID)
 	presignPostUrl, err := s.s3.GeneratePostObjectLink(c.Request.Context(),key)
 	if err != nil {
 		log.Error().Err(err).Str("request_id", requestID).Msg("Error generating presign post URL")
@@ -72,7 +77,7 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success":false,"message":"Empty key in params"})
 		return
 	}
-	data.UserID = c.Keys["userID"].(string)
+	data.UserID = c.GetString("userID")
 	if err := c.ShouldBind(&data); err != nil {
 		log.Warn().Err(err).Msg("Error unmarshalling request body")
 		c.JSON(http.StatusBadRequest, gin.H{"success":false,"message":"Invalid request payload"})
@@ -107,7 +112,7 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 }
 
 func (s *EpubController) GetUserEpub(c *gin.Context) {
-	userID := c.Keys["userID"].(string)
+	userID := c.GetString("userID")
 	if userID == "" {
 		log.Warn().Msg("Error fetching user epubs: userID not found")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
@@ -124,7 +129,7 @@ func (s *EpubController) GetUserEpub(c *gin.Context) {
 
 func (s *EpubController) DeleteEpub(c *gin.Context) {
 	epubID := c.Param("id")
-	userID := c.Keys["userID"].(string)
+	userID := c.GetString("userID")
 	if userID == "" {
 		log.Warn().Msg("Error fetching user epubs: userID not found")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
@@ -144,7 +149,7 @@ func (s *EpubController) DeleteEpub(c *gin.Context) {
 }
 
 func (s *EpubController) GetPresignTranslatedEpubLink(c *gin.Context) {
-	userID := c.Keys["userID"].(string)
+	userID := c.GetString("userID")
 	if userID == "" {
 		log.Warn().Msg("Error fetching user epubs: userID not found")
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unauthorized user"})
