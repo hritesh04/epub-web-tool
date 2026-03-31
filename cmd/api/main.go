@@ -45,7 +45,9 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to initialize OTel")
 	}
 	defer func() {
-		if err := otelShutdown(context.Background()); err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := otelShutdown(shutdownCtx); err != nil {
 			log.Error().Err(err).Msg("Error shutting down OTel")
 		}
 	}()
@@ -62,8 +64,13 @@ func main() {
 	r.Use(middleware.Logger())
 	r.Use(gin.Recovery())
 
+	origins := []string{"https://epub.acerowl.tech"}
+	if cfg.Env == "development" {
+		origins = append(origins, "http://localhost:5173")
+	}
+
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173","https://epub.acerowl.tech"},
+		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type"},
 		AllowCredentials: true,
@@ -85,18 +92,24 @@ func main() {
 	epub := handler.NewEpubHandler(epubRepo, store, publisher)
 	chunk := handler.NewChunkHandler(chunkRepo, epubRepo)
 
+	r.GET("/health", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK,gin.H{"success":true})
+	})
 	r.POST("/signin", user.SignIn)
 	r.POST("/signup", user.SignUp)
 	r.GET("/refresh", user.Refresh)
-	r.Use(middleware.Auth())
-	r.POST("/signout", user.SignOut)
-	r.GET("/auth", user.Auth)
-	r.GET("/epubs", epub.GetUserEpub)
-	r.DELETE("/epub/:id", epub.DeleteEpub)
-	r.GET("/upload", epub.GetPresignPostURL)
-	r.POST("/upload/:id", epub.FinishUpload)
-	r.GET("/progress/:id", chunk.Progress)
-	r.GET("/download/:id", epub.GetPresignTranslatedEpubLink)
+
+	protected := r.Group("/")
+	
+	protected.Use(middleware.Auth())
+	protected.POST("/signout", user.SignOut)
+	protected.GET("/auth", user.Auth)
+	protected.GET("/epubs", epub.GetUserEpub)
+	protected.DELETE("/epub/:id", epub.DeleteEpub)
+	protected.GET("/upload", epub.GetPresignPostURL)
+	protected.POST("/upload/:id", epub.FinishUpload)
+	protected.GET("/progress/:id", chunk.Progress)
+	protected.GET("/download/:id", epub.GetPresignTranslatedEpubLink)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -112,7 +125,7 @@ func main() {
 
 	<-ctx.Done()
 	log.Info().Msg("Shutting down server...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
