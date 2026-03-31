@@ -57,7 +57,7 @@ func LoadConfig() Config {
 	if err != nil {
 		log.Warn().Err(err).Msg("Error loading .env file")
 	}
-	cfg.Env = os.Getenv("GO_ENV")
+	cfg.Env = os.Getenv("ENVIRONMENT")
 	if cfg.Env == "" {
 		cfg.Env = "development"
 	}

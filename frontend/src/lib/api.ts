@@ -52,7 +52,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await api.get('/refresh');
+        await axios.get(`${API_BASE_URL || 'http://localhost:3000'}/refresh`, { withCredentials: true });
         isRefreshing = false;
         processQueue(null);
         return api(originalRequest);

@@ -3,8 +3,8 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"os"
 	"regexp"
-	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -70,12 +70,19 @@ func (u *UserHandler) SignIn(c *gin.Context){
 		c.JSON(http.StatusOK,gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
-
-	if err := u.user.UpdateRefreshToken(c.Request.Context(),user.ID,refreshToken); err != nil {
-		log.Error().Err(err).Msg("Error updating refresh token")
+	hashedRefreshToken,err := utils.Hash(refreshToken)
+	if err != nil {
+		log.Error().Err(err).Msg("Error hashing refresh token")
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
+		return
 	}
-	c.SetCookie("epub-tool-access-token",accessToken,15*60,"/","",false,true)
-	c.SetCookie("epub-tool-refresh-token",refreshToken,30*24*60*60,"/","",false,true)
+	if err := u.user.UpdateRefreshToken(c.Request.Context(),user.ID,hashedRefreshToken); err != nil {
+		log.Error().Err(err).Msg("Error updating refresh token")
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
+		return
+	}
+	setCookie(c,"epub-tool-access-token",accessToken,15*60)
+	setCookie(c,"epub-tool-refresh-token",refreshToken,30*24*60*60)
 
 	c.JSON(http.StatusOK,gin.H{"success":true,"data":user})
 }
@@ -136,12 +143,19 @@ func (u *UserHandler) SignUp(c *gin.Context){
 		c.JSON(http.StatusOK,gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
-	if err := u.user.UpdateRefreshToken(c.Request.Context(),user.ID,refreshToken); err != nil {
-		log.Error().Err(err).Msg("Error updating refresh token")
+	hashedRefreshToken,err := utils.Hash(refreshToken)
+	if err != nil {
+		log.Error().Err(err).Msg("Error hashing refresh token")
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
+		return
 	}
-	c.SetCookie("epub-tool-access-token",accessToken,15*60,"/","",false,true)
-	c.SetCookie("epub-tool-refresh-token",refreshToken,30*24*60*60,"/","",false,true)
-
+	if err := u.user.UpdateRefreshToken(c.Request.Context(),user.ID,hashedRefreshToken); err != nil {
+		log.Error().Err(err).Msg("Error updating refresh token")
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
+		return
+	}
+	setCookie(c,"epub-tool-access-token",accessToken,15*60)
+	setCookie(c,"epub-tool-refresh-token",refreshToken,30*24*60*60)
 	c.JSON(http.StatusCreated,gin.H{"success":true,"data":user})
 }
 
@@ -149,51 +163,50 @@ func (u *UserHandler) Refresh(c *gin.Context){
 	refreshToken, err := c.Cookie("epub-tool-refresh-token")
 	if err != nil {
 		log.Error().Msg("Refresh token not found")
-		c.JSON(http.StatusPermanentRedirect,gin.H{"success":false,"url":"/signin"})
+		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Refresh token not found"})
 		return
 	}
 	
 	token,err := utils.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		log.Error().Err(err).Msg("Error validating refresh token")
-		c.JSON(http.StatusPermanentRedirect,gin.H{"success":false,"url":"/signin"})
+		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid or expired refresh token"})
 		return
 	}
 
-	if err := u.user.CheckRefreshToken(c.Request.Context(),token.UserID,refreshToken);err != nil {
-		if err == pgx.ErrNoRows {
-			log.Warn().Str("user_id", token.UserID).Msg("User refresh token not matched")
-			c.JSON(http.StatusUnauthorized,gin.H{"success":false,"url":"/signin"})
-			return
-		}
-		log.Error().Err(err).Msg("Error checking user refresh token")
-		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"url":"/signin"})
+	hashedToken,err := u.user.CheckRefreshToken(c.Request.Context(),token.UserID)
+	if err != nil {
+		log.Warn().Err(err).Str("user_id", token.UserID).Msg("Refresh token check failed")
+		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid refresh token"})
 		return
 	}
 	
-	if token.ExpiresAt.Compare(time.Now()) == -1 {
-		log.Warn().Msg("Refresh token expired")
-		c.JSON(http.StatusPermanentRedirect,gin.H{"success":false,"url":"/signin"})
+	if !utils.CheckHash(refreshToken,hashedToken) {
+		log.Warn().Str("user_id", token.UserID).Msg("Refresh token check failed")
+		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid refresh token"})
 		return
 	}
+
 	accessToken,err := utils.NewAccessToken(token.UserID)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating access token")
-		c.JSON(http.StatusOK,gin.H{"success":false,"message":"Internal Server Error"})
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
 	newRefreshToken, err := utils.NewRefreshToken(token.UserID)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating refresh token")
-		c.JSON(http.StatusOK,gin.H{"success":false,"message":"Internal Server Error"})
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
 	if err := u.user.UpdateRefreshToken(c.Request.Context(),token.UserID,newRefreshToken);err != nil {
 		log.Error().Err(err).Msg("Error updating refresh token")
+		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
+		return
 	}
-	c.SetCookie("epub-tool-access-token",accessToken,15*60,"/","",false,true)
-	c.SetCookie("epub-tool-refresh-token",newRefreshToken,30*24*60*60,"/","",false,true)
-	c.JSON(http.StatusCreated,gin.H{"success":true})
+	setCookie(c,"epub-tool-access-token",accessToken,15*60)
+	setCookie(c,"epub-tool-refresh-token",newRefreshToken,30*24*60*60)
+	c.JSON(http.StatusOK,gin.H{"success":true})
 }
 
 func (u *UserHandler) Auth(c *gin.Context) {
@@ -213,7 +226,13 @@ func (u *UserHandler) Auth(c *gin.Context) {
 }
 
 func (u *UserHandler) SignOut(c *gin.Context) {
-	c.SetCookie("epub-tool-access-token", "", -1, "/", "", false, true)
-	c.SetCookie("epub-tool-refresh-token", "", -1, "/", "", false, true)
+	setCookie(c,"epub-tool-access-token", "", -1)
+	setCookie(c,"epub-tool-refresh-token", "", -1)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Signed out successfully"})
+}
+
+func setCookie(c *gin.Context,name,token string,maxAge int){
+	secure :=  os.Getenv("ENVIRONMENT") == "production"
+	c.SetCookie(name,token,maxAge,"/","",secure,true)
+	c.SetSameSite(http.SameSiteStrictMode)
 }

@@ -54,19 +54,18 @@ func (u *UserRepository) UpdateRefreshToken(ctx context.Context, id string, toke
 	}
 	if row.RowsAffected() == 0 {
 		log.Println("Failed to update user refresh token no row effect for userID:",id)
-		return nil
+		return fmt.Errorf("failed to update refresh token: user not found")
 	}
 	return nil
 }
 
-func (u *UserRepository) CheckRefreshToken(ctx context.Context, id string, token string) error {
-	row, err := u.db.Exec(ctx,"SELECT id FROM users WHERE refresh_token = $1 WHERE id=$2;",token,id)
-	if err != nil {
-		return err
+func (u *UserRepository) CheckRefreshToken(ctx context.Context, id string) (string,error) {
+	var hashedToken string
+	if err := u.db.QueryRow(ctx,"SELECT refresh_token FROM users WHERE id = $1;",id).Scan(&hashedToken);err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "",fmt.Errorf("Invalid refresh token")
+		}
+		return "",err
 	}
-	if row.RowsAffected() == 0 {
-		log.Println("Failed to update user refresh token no row effect for userID:",id)
-		return fmt.Errorf("Invalid refresh token")
-	}
-	return nil
+	return hashedToken,nil
 }
