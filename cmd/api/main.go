@@ -59,8 +59,8 @@ func main() {
 
 	r := gin.New()
 	r.Use(otelgin.Middleware("epub-web-tool"))
-	r.Use(otel.GinMiddleware())
 	r.Use(middleware.RequestID())
+	r.Use(otel.GinMiddleware())
 	r.Use(middleware.Logger())
 	r.Use(gin.Recovery())
 

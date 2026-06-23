@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/hritesh04/epub-web-tool/internal/model"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
 )
 
@@ -70,6 +71,7 @@ func (s *EpubController) GetPresignPostURL(c *gin.Context) {
 }
 
 func (s *EpubController) FinishUpload(c *gin.Context) {
+	defer otel.RecordUpload(c.Request.Context())
 	data := new(model.Epub)
 	key := c.Param("id")
 	if key == "" {

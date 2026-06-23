@@ -79,6 +79,7 @@ func InitMetrics() error {
 type RequestLabels struct {
 	Method string
 	Route  string
+	RequestID string
 	Status int
 }
 
@@ -86,6 +87,7 @@ func RecordRequest(ctx context.Context, labels RequestLabels, durationMs float64
 	attrs := []attribute.KeyValue{
 		attribute.String("http.method", labels.Method),
 		attribute.String("http.route", labels.Route),
+		attribute.String("http.requestID", labels.RequestID),
 		attribute.Int("http.status_code", labels.Status),
 	}
 
@@ -113,22 +115,6 @@ func DecActiveRequests(ctx context.Context) {
 	activeRequestsGauge.Add(ctx, -1)
 }
 
-type Middleware struct{}
-
-func NewMetricsMiddleware() *Middleware {
-	return &Middleware{}
-}
-
-func (m *Middleware) Record(method, route string, status int, duration time.Duration) {
-	ctx := context.Background()
-	labels := RequestLabels{
-		Method: method,
-		Route:  route,
-		Status: status,
-	}
-	RecordRequest(ctx, labels, float64(duration.Milliseconds()))
-}
-
 func GinMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -136,17 +122,23 @@ func GinMiddleware() gin.HandlerFunc {
 		if route == "" {
 			route = "unknown"
 		}
-
+		IncActiveRequests(c.Request.Context())
+		defer DecActiveRequests(c.Request.Context())
 		c.Next()
 
 		duration := time.Since(start)
 		status := c.Writer.Status()
 		method := c.Request.Method
+		requestID := c.GetString("requestID")
+		if requestID == "" {
+			requestID = "unknown"
+		}
 
 		RecordRequest(c.Request.Context(), RequestLabels{
 			Method: method,
 			Route:  route,
 			Status: status,
+			RequestID: requestID,
 		}, float64(duration.Milliseconds()))
 	}
 }
