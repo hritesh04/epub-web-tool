@@ -70,17 +70,7 @@ func (u *UserHandler) SignIn(c *gin.Context){
 		c.JSON(http.StatusOK,gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
-	hashedRefreshToken,err := utils.Hash(refreshToken)
-	if err != nil {
-		log.Error().Err(err).Msg("Error hashing refresh token")
-		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
-		return
-	}
-	if err := u.user.UpdateRefreshToken(c.Request.Context(),user.ID,hashedRefreshToken); err != nil {
-		log.Error().Err(err).Msg("Error updating refresh token")
-		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
-		return
-	}
+
 	setCookie(c,"epub-tool-access-token",accessToken,15*60)
 	setCookie(c,"epub-tool-refresh-token",refreshToken,30*24*60*60)
 
@@ -143,17 +133,6 @@ func (u *UserHandler) SignUp(c *gin.Context){
 		c.JSON(http.StatusOK,gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
-	hashedRefreshToken,err := utils.Hash(refreshToken)
-	if err != nil {
-		log.Error().Err(err).Msg("Error hashing refresh token")
-		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
-		return
-	}
-	if err := u.user.UpdateRefreshToken(c.Request.Context(),user.ID,hashedRefreshToken); err != nil {
-		log.Error().Err(err).Msg("Error updating refresh token")
-		c.JSON(http.StatusInternalServerError,gin.H{"success":false,"message":"Internal Server Error"})
-		return
-	}
 	setCookie(c,"epub-tool-access-token",accessToken,15*60)
 	setCookie(c,"epub-tool-refresh-token",refreshToken,30*24*60*60)
 	c.JSON(http.StatusCreated,gin.H{"success":true,"data":user})
@@ -171,19 +150,6 @@ func (u *UserHandler) Refresh(c *gin.Context){
 	if err != nil {
 		log.Error().Err(err).Msg("Error validating refresh token")
 		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid or expired refresh token"})
-		return
-	}
-
-	hashedToken,err := u.user.CheckRefreshToken(c.Request.Context(),token.UserID)
-	if err != nil {
-		log.Warn().Err(err).Str("user_id", token.UserID).Msg("Refresh token check failed")
-		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid refresh token"})
-		return
-	}
-	
-	if !utils.CheckHash(refreshToken,hashedToken) {
-		log.Warn().Str("user_id", token.UserID).Msg("Refresh token check failed")
-		c.JSON(http.StatusUnauthorized,gin.H{"success":false,"message":"Invalid refresh token"})
 		return
 	}
 
