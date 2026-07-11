@@ -16,13 +16,13 @@ jobs:
     strategy:
       matrix:
         include:
-          - dockerfile: ./Dockerfile.api
+          - dockerfile: Dockerfile.api
             image: epub-web-tool-api
 
-          - dockerfile: ./Dockerfile.chunker
+          - dockerfile: Dockerfile.chunker
             image: epub-web-tool-chunker
 
-          - dockerfile: ./Dockerfile.compiler
+          - dockerfile: Dockerfile.compiler
             image: epub-web-tool-compiler
 
     steps:
@@ -38,7 +38,7 @@ jobs:
       - uses: docker/build-push-action@v5
         with:
           context: .
-          dockerfile: ${{ matrix.dockerfile }}
+          file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/arm64
           tags: |
