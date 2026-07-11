@@ -1,0 +1,48 @@
+name: Build and Push Golang API Image
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - frontend/**
+      - README.md
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+
+    strategy:
+      matrix:
+        include:
+          - dockerfile: Dockerfile.api
+            image: epub-web-tool-api
+
+          - dockerfile: Dockerfile.chunker
+            image: epub-web-tool-chunker
+
+          - dockerfile: Dockerfile.compiler
+            image: epub-web-tool-compiler
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max

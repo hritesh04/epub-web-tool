@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/pg": "^8.18.0",
-    "@types/xml2js": "^0.4.14"
+    "@types/xml2js": "^0.4.14",
+    "typescript": "^7.0.2"
   }
 }
