@@ -33,8 +33,7 @@ func (q *Queue) URI() string {
 
 type OpenObserve struct {
 	Endpoint string
-	User string
-	Password string
+	AuthToken string
 	Organization string
 }
 
@@ -129,18 +128,11 @@ func LoadConfig() Config {
 	}
 
 	cfg.OpenObserve.Endpoint = os.Getenv("OPENOBSERVE_ENDPOINT")
-	cfg.OpenObserve.User = os.Getenv("OPENOBSERVE_USER")
-	cfg.OpenObserve.Password = os.Getenv("OPENOBSERVE_PASSWORD")
+	cfg.OpenObserve.AuthToken = os.Getenv("OPENOBSERVE_AUTH_TOKEN") 
 	cfg.OpenObserve.Organization = os.Getenv("OPENOBSERVE_ORGANIZATION")
 
 	if cfg.OpenObserve.Endpoint == "" {
 		cfg.OpenObserve.Endpoint = "localhost:5080"
-	}
-	if cfg.OpenObserve.User == "" {
-		cfg.OpenObserve.User = "root@example.com"
-	}
-	if cfg.OpenObserve.Password == "" {
-		cfg.OpenObserve.Password = "password"
 	}
 	if cfg.OpenObserve.Organization == "" {
 		cfg.OpenObserve.Organization = "default"

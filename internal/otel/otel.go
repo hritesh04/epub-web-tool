@@ -2,7 +2,6 @@ package otel
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,7 +44,7 @@ func InitOTel(ctx context.Context, cfg config.OpenObserve) (shutdown func(contex
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
-	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.User+":"+cfg.Password))
+	authHeader := fmt.Sprintf("Basic %s", cfg.AuthToken)
 	headers := map[string]string{
 		"Authorization": authHeader,
 	}
