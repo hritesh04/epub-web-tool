@@ -22,7 +22,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-func InitOTel(ctx context.Context, cfg config.OpenObserve) (shutdown func(context.Context) error, err error) {
+func InitOTel(ctx context.Context, cfg config.OpenObserve, serviceName string) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
 
 	shutdown = func(ctx context.Context) error {
@@ -37,7 +37,7 @@ func InitOTel(ctx context.Context, cfg config.OpenObserve) (shutdown func(contex
 
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
-			semconv.ServiceName("epub-web-tool"),
+			semconv.ServiceName(serviceName),
 		),
 	)
 	if err != nil {
@@ -87,6 +87,25 @@ func InitOTel(ctx context.Context, cfg config.OpenObserve) (shutdown func(contex
 	shutdownFuncs = append(shutdownFuncs, mp.Shutdown)
 
 	// LOGS
+	shutdwn, err := InitLogger(ctx,cfg,serviceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize logger: %w", err)
+	}
+	shutdownFuncs = append(shutdownFuncs, shutdwn)
+
+	return shutdown, nil
+}
+
+func InitLogger(ctx context.Context,cfg config.OpenObserve, serviceName string) (func(context.Context) error, error) {
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceName(serviceName),
+		),
+	)
+	authHeader := fmt.Sprintf("Basic %s", cfg.AuthToken)
+	headers := map[string]string{
+		"Authorization": authHeader,
+	}
 	logExporter, err := otlploghttp.New(ctx,
 		otlploghttp.WithEndpoint(cfg.Endpoint),
 		otlploghttp.WithURLPath(fmt.Sprintf("/api/%s/v1/logs", cfg.Organization)),
@@ -102,9 +121,7 @@ func InitOTel(ctx context.Context, cfg config.OpenObserve) (shutdown func(contex
 		sdklog.WithResource(res),
 	)
 	global.SetLoggerProvider(lp)
-	shutdownFuncs = append(shutdownFuncs, lp.Shutdown)
-
-	return shutdown, nil
+	return lp.Shutdown, nil
 }
 
 type OTelWriter struct {

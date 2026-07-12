@@ -5,13 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/db"
 	"github.com/hritesh04/epub-web-tool/internal/epub"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/hritesh04/epub-web-tool/internal/queue/consumer"
 	"github.com/hritesh04/epub-web-tool/internal/repository"
 	"github.com/hritesh04/epub-web-tool/internal/s3"
@@ -24,9 +27,24 @@ func main(){
 
 	// Configure zerolog
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	if cfg.Env == "development" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+		log.Logger = log.Output(zerolog.MultiLevelWriter(zerolog.ConsoleWriter{Out: os.Stdout}, otel.NewZerologWriter()))
+	} else {
+		log.Logger = log.Output(otel.NewZerologWriter())
 	}
+
+	shutdown,err := otel.InitLogger(ctx,cfg.OpenObserve,"epub-web-tool-compiler")
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize OTel")
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdown(shutdownCtx); err != nil {
+			log.Error().Err(err).Msg("Error shutting down OTel")
+		}
+	}()
 
 	database, err := db.New(cfg.DB.Url)
 	if err != nil {

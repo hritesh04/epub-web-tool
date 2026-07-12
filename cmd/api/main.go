@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// Initialize OTel for Traces, Metrics, and Logs
-	otelShutdown, err := otel.InitOTel(ctx, cfg.OpenObserve)
+	otelShutdown, err := otel.InitOTel(ctx, cfg.OpenObserve,"epub-web-tool-api")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize OTel")
 	}

@@ -86,7 +86,7 @@ func (s *ChunkController) Progress(c *gin.Context) {
 					percent = (count * 100) / epub.ChunkCount
 				}
 
-				if count >= epub.ChunkCount {
+				if count >= epub.ChunkCount && count != 0 {
 					status = "finished"
 					percent = 100
 				}
