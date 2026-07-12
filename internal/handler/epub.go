@@ -75,7 +75,6 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 	data := new(model.Epub)
 	uid := c.Param("uid")
 	key := c.Param("id")
-	fmt.Println("KEY",key)
 	if key == "" || uid == "" {
 		log.Warn().Msg("Empty key for finish upload")
 		c.JSON(http.StatusBadRequest, gin.H{"success":false,"message":"Empty key in params"})

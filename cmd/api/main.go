@@ -107,7 +107,7 @@ func main() {
 	protected.GET("/epubs", epub.GetUserEpub)
 	protected.DELETE("/epub/:id", epub.DeleteEpub)
 	protected.GET("/upload", epub.GetPresignPostURL)
-	protected.POST("/upload/:id", epub.FinishUpload)
+	protected.POST("/upload/:uid/:id", epub.FinishUpload)
 	protected.GET("/progress/:id", chunk.Progress)
 	protected.GET("/download/:id", epub.GetPresignTranslatedEpubLink)
 
