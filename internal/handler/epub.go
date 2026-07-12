@@ -73,8 +73,10 @@ func (s *EpubController) GetPresignPostURL(c *gin.Context) {
 func (s *EpubController) FinishUpload(c *gin.Context) {
 	defer otel.RecordUpload(c.Request.Context())
 	data := new(model.Epub)
+	uid := c.Param("uid")
 	key := c.Param("id")
-	if key == "" {
+	fmt.Println("KEY",key)
+	if key == "" || uid == "" {
 		log.Warn().Msg("Empty key for finish upload")
 		c.JSON(http.StatusBadRequest, gin.H{"success":false,"message":"Empty key in params"})
 		return
@@ -86,7 +88,7 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 		return
 	}
 
-	if exists := s.s3.Exists(c.Request.Context(),key); !exists {
+	if exists := s.s3.Exists(c.Request.Context(),fmt.Sprintf("%s/%s",uid,key)); !exists {
 		log.Warn().Str("key", key).Msg("Object not found in s3")
 		c.JSON(http.StatusNotFound, gin.H{"success":false,"message":"Object Not Found"})
 		return
