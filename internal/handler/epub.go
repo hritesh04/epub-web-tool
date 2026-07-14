@@ -101,7 +101,7 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 	
 	body := queue.TranslationMsg{
 		EpubID:epub.Id,
-		Key: key,
+		Key: fmt.Sprintf("%s/%s",uid,key),
 		TranslateTo: epub.TranslateTo,
 	}
 
