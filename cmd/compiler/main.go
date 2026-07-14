@@ -26,11 +26,12 @@ func main(){
 	cfg := config.LoadConfig()
 
 	// Configure zerolog
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	if cfg.Env == "development" {
 		log.Logger = log.Output(zerolog.MultiLevelWriter(zerolog.ConsoleWriter{Out: os.Stdout}, otel.NewZerologWriter()))
 	} else {
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		log.Logger = log.Output(otel.NewZerologWriter())
 	}
 

@@ -31,12 +31,20 @@ func main() {
 
 	cfg := config.LoadConfig()
 
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	if cfg.Env == "development" {
-		log.Logger = log.Output(zerolog.MultiLevelWriter(zerolog.ConsoleWriter{Out: os.Stdout}, otel.NewZerologWriter()))
+		log.Logger = log.Output(zerolog.MultiLevelWriter(zerolog.ConsoleWriter{Out: os.Stdout}, otel.NewZerologWriter())).With().
+        Timestamp().
+        Caller().
+        Logger()
 	} else {
-		log.Logger = log.Output(otel.NewZerologWriter())
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		log.Logger = log.Output(otel.NewZerologWriter()).
+		With().
+        Timestamp().
+        Caller().
+        Logger()
 	}
 
 	// Initialize OTel for Traces, Metrics, and Logs
