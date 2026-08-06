@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
-	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -54,14 +55,22 @@ func NewZipRequestPublisher(cfg config.Queue) *RabbitMQZipReqPublisher {
 	}
 }
 
-func (r *RabbitMQZipReqPublisher) PublishZipReq(ctx context.Context,data queue.TranslationMsg)error{
-	tracer := otel.Tracer("publisher")
-	ctx, span := tracer.Start(ctx, "PublishZipReq", trace.WithSpanKind(trace.SpanKindProducer))
+func (r *RabbitMQZipReqPublisher) PublishZipReq(ctx context.Context, data queue.TranslationMsg) error {
+	ctx, span := otel.Tracer("queue.producer").Start(ctx, "queue.publish",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "rabbitmq"),
+			attribute.String("messaging.operation", "publish"),
+			attribute.String("messaging.destination", r.cfg.ZipQueue),
+			attribute.String("epub.id", data.EpubID),
+		))
 	defer span.End()
+
+	queue.SetTraceContext(ctx, &data)
 
 	dataByte, err := json.Marshal(data)
 	if err != nil {
-		log.Println("Error marshalling message:",err)
+		otel.RecordError(ctx, err)
 		return err
 	}
 	msg, err := rmq.NewMessageWithAddress(
@@ -71,14 +80,15 @@ func (r *RabbitMQZipReqPublisher) PublishZipReq(ctx context.Context,data queue.T
 		},
 	)
 	if err != nil {
-		log.Println("Error creating message for queue:",err)
+		otel.RecordError(ctx, err)
 		return err
 	}
 
-	_,err = r.publisher.Publish(ctx,msg)
+	_, err = r.publisher.Publish(ctx, msg)
 	if err != nil {
-		log.Println("Error publishing message to queue:",err)
+		otel.RecordError(ctx, err)
 		return err
 	}
+	otel.RecordQueuePublished(ctx, r.cfg.ZipQueue, attribute.String("epub.id", data.EpubID))
 	return nil
 }

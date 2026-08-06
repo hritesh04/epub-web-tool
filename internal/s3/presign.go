@@ -11,6 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hritesh04/epub-web-tool/internal/config"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type S3Presign struct {
@@ -32,6 +35,7 @@ func NewPresignUploadS3Client(cfg config.S3)*S3Presign{
 		),
 	},func(o *s3.Options) {
 		o.UsePathStyle=true
+		otelaws.AppendMiddlewares(&o.APIOptions)
 		if strings.Contains(cfg.Endpoint, cfg.Endpoint) {
 			ignoreSigningHeaders(o, []string{"Accept-Encoding"})
 		}
@@ -47,6 +51,8 @@ func NewPresignUploadS3Client(cfg config.S3)*S3Presign{
 			),
 		),
 		UsePathStyle: true,
+	}, func(o *s3.Options) {
+		otelaws.AppendMiddlewares(&o.APIOptions)
 	}))
 	return &S3Presign{
 		s3: client,
@@ -59,7 +65,13 @@ func (s *S3Presign) GeneratePostObjectLink(
     ctx context.Context,
     key string,
 ) (*s3.PresignedPostRequest, error) {
-    
+	start := time.Now()
+	defer func() {
+		otel.RecordS3Operation(ctx, "S3.PresignPostObject", time.Since(start).Seconds(),
+			attribute.String("bucket", s.cfg.EpubBucket),
+			attribute.String("s3.key", key))
+	}()
+
 	req, err := s.presignClient.PresignPostObject(ctx, &s3.PutObjectInput{
         Bucket: aws.String(s.cfg.EpubBucket),
         Key:    aws.String(key),
@@ -85,6 +97,12 @@ func (s *S3Presign) GeneratePostObjectLink(
 }
 
 func (s *S3Presign) GenerateGetObjectLink(ctx context.Context, key string) (string,error) {
+	start := time.Now()
+	defer func() {
+		otel.RecordS3Operation(ctx, "S3.PresignGetObject", time.Since(start).Seconds(),
+			attribute.String("bucket", s.cfg.EpubBucket),
+			attribute.String("s3.key", key))
+	}()
 
 	res, err := s.presignClient.PresignGetObject(ctx,&s3.GetObjectInput{
 		Bucket: &s.cfg.EpubBucket,
@@ -99,6 +117,13 @@ func (s *S3Presign) GenerateGetObjectLink(ctx context.Context, key string) (stri
 }
 
 func (s *S3Presign) Exists(ctx context.Context, key string)bool{
+	start := time.Now()
+	defer func() {
+		otel.RecordS3Operation(ctx, "S3.HeadObject", time.Since(start).Seconds(),
+			attribute.String("bucket", s.cfg.EpubBucket),
+			attribute.String("s3.key", key))
+	}()
+
 	_,err := s.s3.HeadObject(ctx,&s3.HeadObjectInput{
 		Bucket: &s.cfg.EpubBucket,
 		Key: &key,

@@ -1,5 +1,6 @@
 import { GetObjectCommand, PutObjectCommand, S3, S3Client } from "@aws-sdk/client-s3";
-import {  s3Config } from "./config";
+import { s3Config } from "./config";
+import { logger } from "./logger";
 
 export class S3Service {
     client:S3Client
@@ -21,7 +22,7 @@ export class S3Service {
             const cmd = new PutObjectCommand({Bucket:this.cfg.translationBucket,Key:key,Body:data})
             await this.client.send(cmd)
         }catch(err:any){
-            console.log("Error uploading translated chunks:",err)
+            logger.error({ err, key }, "Error uploading translated chunks:")
         }
     }
     async downloadChunkObject(key:string):Promise<string | undefined>{
@@ -30,7 +31,7 @@ export class S3Service {
             const res = await this.client.send(cmd)
             return res.Body?.transformToString()
         }catch(err:any){
-            console.log("Error downloading translated chunks:",err)
+            logger.error({ err, key }, "Error downloading translated chunks:")
         }
     }
 }

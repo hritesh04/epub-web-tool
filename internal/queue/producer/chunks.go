@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
-	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -54,15 +55,24 @@ if err != nil {
 	}
 }
 
-func (r *RabbitMQChunkPublisher) PublishFileChunks(ctx context.Context,data []queue.ChunkMsg)error{
-	tracer := otel.Tracer("publisher")
-	for _,item := range data{
-		ctx, span := tracer.Start(ctx, "PublishFileChunks", trace.WithSpanKind(trace.SpanKindProducer))
-		
-		chunk := item
-		dataByte, err := json.Marshal(chunk)
+func (r *RabbitMQChunkPublisher) PublishFileChunks(ctx context.Context, data []queue.ChunkMsg) error {
+	for i := range data {
+		item := &data[i]
+		ctx, span := otel.Tracer("queue.producer").Start(ctx, "queue.publish",
+			trace.WithSpanKind(trace.SpanKindProducer),
+			trace.WithAttributes(
+				attribute.String("messaging.system", "rabbitmq"),
+				attribute.String("messaging.operation", "publish"),
+				attribute.String("messaging.destination", r.cfg.TranslationQueue),
+				attribute.String("epub.id", item.EpubID),
+				attribute.Int("chunk.id", item.ChunkID),
+			))
+
+		queue.SetTraceContext(ctx, item)
+
+		dataByte, err := json.Marshal(item)
 		if err != nil {
-			log.Println("Error marshalling message:",err)
+			otel.RecordError(ctx, err)
 			span.End()
 			return err
 		}
@@ -73,17 +83,21 @@ func (r *RabbitMQChunkPublisher) PublishFileChunks(ctx context.Context,data []qu
 			},
 		)
 		if err != nil {
-			log.Println("Error creating message for queue:",err)
+			otel.RecordError(ctx, err)
 			span.End()
 			return err
 		}
 
-		_,err = r.publisher.Publish(ctx,msg)
+		_, err = r.publisher.Publish(ctx, msg)
 		if err != nil {
-			log.Println("Error publishing message to queue:",err)
+			otel.RecordError(ctx, err)
 			span.End()
 			return err
 		}
+		otel.RecordQueuePublished(ctx, r.cfg.TranslationQueue,
+			attribute.String("epub.id", item.EpubID),
+			attribute.Int("chunk.id", item.ChunkID),
+		)
 		span.End()
 	}
 	return nil

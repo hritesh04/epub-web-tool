@@ -12,6 +12,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type S3BulkDownloader interface {
@@ -28,7 +31,13 @@ func NewCompiler(s3 S3BulkDownloader) *Compiler	{
 	}
 }
 
-func (c *Compiler) Unzip(key string, src string, dest string) ([]types.ObjectIdentifier,error) {
+func (c *Compiler) Unzip(ctx context.Context, key string, src string, dest string) ([]types.ObjectIdentifier, error) {
+	_, span := otel.Tracer("compiler").Start(ctx, "epub.unzip",
+		trace.WithAttributes(
+			attribute.String("s3.key", key),
+		))
+	defer span.End()
+
 	var keys []types.ObjectIdentifier
 	r, err := zip.OpenReader(src)
 	if err != nil {
@@ -76,7 +85,10 @@ func (c *Compiler) Unzip(key string, src string, dest string) ([]types.ObjectIde
 	}
 	return keys,nil
 }
-func (c *Compiler)ZipToEpub(sourceDir, outputFile string) error {
+func (c *Compiler) ZipToEpub(ctx context.Context, sourceDir, outputFile string) error {
+	_, span := otel.Tracer("compiler").Start(ctx, "epub.zip")
+	defer span.End()
+
 	outFile, err := os.Create(outputFile)
 	if err != nil {
 		return err

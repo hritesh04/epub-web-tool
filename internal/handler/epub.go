@@ -13,6 +13,8 @@ import (
 	"github.com/hritesh04/epub-web-tool/internal/model"
 	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024
@@ -49,6 +51,9 @@ func NewEpubHandler(db EpubRepository,s3 PresignUploadService,queue PublisherSer
 }
 
 func (s *EpubController) GetPresignPostURL(c *gin.Context) {
+	ctx, span := otel.Tracer("api").Start(c.Request.Context(), "epub.presign")
+	defer span.End()
+
 	requestID := c.GetString("requestID")
 	if requestID == "" {
 		requestID = uuid.New().String()
@@ -60,8 +65,10 @@ func (s *EpubController) GetPresignPostURL(c *gin.Context) {
 		return
 	}
 	key := fmt.Sprintf("%s/%s.epub", userID, requestID)
-	presignPostUrl, err := s.s3.GeneratePostObjectLink(c.Request.Context(),key)
+	span.SetAttributes(attribute.String("s3.key", key), attribute.String("user.id", userID))
+	presignPostUrl, err := s.s3.GeneratePostObjectLink(ctx, key)
 	if err != nil {
+		otel.RecordError(ctx, err)
 		log.Error().Err(err).Str("request_id", requestID).Msg("Error generating presign post URL")
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message":"Internal Server Error"})
 		return
@@ -71,7 +78,14 @@ func (s *EpubController) GetPresignPostURL(c *gin.Context) {
 }
 
 func (s *EpubController) FinishUpload(c *gin.Context) {
-	defer otel.RecordUpload(c.Request.Context())
+	ctx, span := otel.Tracer("api").Start(c.Request.Context(), "epub.upload.finish",
+		trace.WithAttributes(
+			attribute.String("upload.id", c.Param("id")),
+		))
+	defer func() {
+		span.End()
+	}()
+
 	data := new(model.Epub)
 	uid := c.Param("uid")
 	key := c.Param("id")
@@ -87,17 +101,20 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 		return
 	}
 
-	if exists := s.s3.Exists(c.Request.Context(),fmt.Sprintf("%s/%s",uid,key)); !exists {
+	if exists := s.s3.Exists(ctx, fmt.Sprintf("%s/%s",uid,key)); !exists {
 		log.Warn().Str("key", key).Msg("Object not found in s3")
 		c.JSON(http.StatusNotFound, gin.H{"success":false,"message":"Object Not Found"})
 		return
 	}
-	epub,err := s.db.Insert(c.Request.Context(),data)
+	epub,err := s.db.Insert(ctx,data)
 	if err != nil {
+		otel.RecordError(ctx, err)
 		log.Error().Err(err).Msg("Error inserting epub into db")
 		c.JSON(http.StatusInternalServerError, gin.H{"success":false,"message":"Internal Server Error"})
 		return
 	}
+	span.SetAttributes(attribute.String("epub.id", epub.Id), attribute.String("s3.key", fmt.Sprintf("%s/%s",uid,key)))
+	otel.RecordUpload(ctx, attribute.String("epub.id", epub.Id))
 	
 	body := queue.TranslationMsg{
 		EpubID:epub.Id,
@@ -105,7 +122,8 @@ func (s *EpubController) FinishUpload(c *gin.Context) {
 		TranslateTo: epub.TranslateTo,
 	}
 
-	if err := s.queue.PublishTranslationReq(c.Request.Context(),body); err != nil {
+	if err := s.queue.PublishTranslationReq(ctx,body); err != nil {
+		otel.RecordError(ctx, err)
 		log.Error().Err(err).Msg("Error publishing message")
 		c.JSON(http.StatusOK, gin.H{"success": false, "message":"Error publishing message"})
 		return

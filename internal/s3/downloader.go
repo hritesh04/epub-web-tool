@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -12,6 +13,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hritesh04/epub-web-tool/internal/config"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type S3Downloader struct {
@@ -32,6 +36,7 @@ func NewDownloader(cfg config.S3) *S3Downloader{
 		),
 	},func(o *s3.Options) {
 		o.UsePathStyle=true
+		otelaws.AppendMiddlewares(&o.APIOptions)
 		ignoreSigningHeaders(o, []string{"Accept-Encoding"})
 	})
 	return &S3Downloader{
@@ -40,7 +45,14 @@ func NewDownloader(cfg config.S3) *S3Downloader{
 	}
 }
 
-func (s *S3Downloader) Download(ctx context.Context,key string)(*os.File,error) {
+func (s *S3Downloader) Download(ctx context.Context, key string)(*os.File,error) {
+	start := time.Now()
+	defer func() {
+		otel.RecordS3Operation(ctx, "S3.GetObject", time.Since(start).Seconds(),
+			attribute.String("bucket", s.cfg.EpubBucket),
+			attribute.String("s3.key", key))
+	}()
+
 	log.Info().Str("key", key).Msg("Downloading object")
 	input := &s3.GetObjectInput{
 		Bucket:&s.cfg.EpubBucket,
@@ -71,6 +83,13 @@ func (s *S3Downloader) Download(ctx context.Context,key string)(*os.File,error) 
 }
 
 func (s *S3Downloader) DownloadTranslatedChunks(ctx context.Context,key string, dst string)(error) {
+	start := time.Now()
+	defer func() {
+		otel.RecordS3Operation(ctx, "S3.DownloadDirectory", time.Since(start).Seconds(),
+			attribute.String("bucket", s.cfg.TranslationBucket),
+			attribute.String("s3.key", key))
+	}()
+
 	log.Info().Str("prefix", key).Str("dst", dst).Msg("Downloading translated chunks")
 	input := &transfermanager.DownloadDirectoryInput{
 		Bucket:&s.cfg.TranslationBucket,

@@ -23,6 +23,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 )
 
 func main() {
@@ -61,8 +62,13 @@ func main() {
 	}()
 
 	// Initialize custom metrics
-	if err := otel.InitMetrics(); err != nil {
+	if err := otel.InitMetrics("epub-web-tool-api"); err != nil {
 		log.Error().Err(err).Msg("Failed to initialize metrics")
+	}
+
+	// Go runtime metrics (goroutines, heap, GC)
+	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(15 * time.Second)); err != nil {
+		log.Error().Err(err).Msg("Failed to start runtime metrics")
 	}
 
 	r := gin.New()

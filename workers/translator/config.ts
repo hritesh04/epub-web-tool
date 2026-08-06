@@ -1,7 +1,5 @@
 import dotenv from "dotenv";
-import path from "path";
-dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
-
+dotenv.config();
 export type s3Config = {
   endpoint: string;
   key: string;
@@ -23,10 +21,17 @@ export type DBConfig = {
   url: string;
 };
 
+export type OpenObserveConfig = {
+  endpoint: string;
+  organization: string;
+  authToken: string;
+};
+
 export type config = {
   DB: DBConfig;
   s3: s3Config;
   queue: queueConfig;
+  openobserve: OpenObserveConfig;
 };
 
 export function loadConfig(): config {
@@ -48,6 +53,10 @@ export function loadConfig(): config {
     process.env.S3_TRANSLATION_BUCKET || "translations";
   const s3ChunkBucket = process.env.S3_CHUNK_BUCKET || "chunks";
 
+  const ooEndpoint = process.env.OPENOBSERVE_ENDPOINT || "localhost:5080";
+  const ooOrganization = process.env.OPENOBSERVE_ORGANIZATION || "default";
+  const ooAuthToken = process.env.OPENOBSERVE_AUTH_TOKEN || "";
+
   return {
     DB: {
       url: dbUrl,
@@ -66,6 +75,11 @@ export function loadConfig(): config {
       passeword: queuePasseword,
       translationQueue: queueTranslation,
       zipQueue: queueZip,
+    },
+    openobserve: {
+      endpoint: ooEndpoint,
+      organization: ooOrganization,
+      authToken: ooAuthToken,
     },
   };
 }

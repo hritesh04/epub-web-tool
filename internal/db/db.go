@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,8 +23,7 @@ func New(url string) (*pgxpool.Pool,error) {
 	cfg.MinConns = 1
 	cfg.MaxConnLifetime = time.Hour
 
-	cfg.MinConns = 1
-	cfg.MaxConnLifetime = time.Hour
+	cfg.ConnConfig.Tracer = otel.NewPGXQueryTracer()
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {

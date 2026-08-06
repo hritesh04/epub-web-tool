@@ -15,9 +15,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hritesh04/epub-web-tool/internal/model"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/hritesh04/epub-web-tool/internal/queue"
 	"github.com/hritesh04/epub-web-tool/internal/repository"
 	"github.com/hritesh04/epub-web-tool/internal/s3"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const MAX_FILE_PER_CHUNK int = 5
@@ -45,11 +48,18 @@ func NewChunker(db *repository.ChunkRepository, s3 *s3.S3Uploader) *Chunker{
 }
 
 func (c *Chunker) Chunk(ctx context.Context, file *os.File, msg queue.TranslationMsg) ([]queue.ChunkMsg, error) {
+	ctx, span := otel.Tracer("chunker").Start(ctx, "epub.chunk",
+		trace.WithAttributes(
+			attribute.String("epub.id", msg.EpubID),
+			attribute.String("translate.to", msg.TranslateTo),
+		))
+	defer span.End()
+
 	var chunks []queue.ChunkMsg
 	var chunkDTO []model.Chunk
 	defer file.Close()
 	
-	reader, pkg, err := c.getOpfDetails(file)
+	reader, pkg, err := c.getOpfDetails(ctx, file)
 	if err != nil {
 		return chunks,err
 	}
@@ -117,7 +127,10 @@ func (c *Chunker) Chunk(ctx context.Context, file *os.File, msg queue.Translatio
 	return chunks,nil
 }
 
-func (c *Chunker) getOpfDetails(file *os.File)(*zip.Reader,Package,error){
+func (c *Chunker) getOpfDetails(ctx context.Context, file *os.File)(*zip.Reader,Package,error){
+	_, span := otel.Tracer("chunker").Start(ctx, "epub.opf.parse")
+	defer span.End()
+
 	var pkg Package
 	stat,_ := file.Stat()	
 	reader, err := zip.NewReader(file,stat.Size())

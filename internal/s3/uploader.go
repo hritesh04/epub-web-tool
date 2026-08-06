@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -12,6 +13,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hritesh04/epub-web-tool/internal/config"
+	"github.com/hritesh04/epub-web-tool/internal/otel"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type ChunkObject struct {
@@ -37,6 +41,7 @@ func NewUploader(cfg config.S3) *S3Uploader{
 		),
 	},func(o *s3.Options) {
 		o.UsePathStyle=true
+		otelaws.AppendMiddlewares(&o.APIOptions)
 		ignoreSigningHeaders(o, []string{"Accept-Encoding"})
 	})
 	return &S3Uploader{
@@ -46,6 +51,13 @@ func NewUploader(cfg config.S3) *S3Uploader{
 }
 
 func (s *S3Uploader) UploadFile(ctx context.Context,key string,body io.Reader)(error){
+	start := time.Now()
+	defer func() {
+		otel.RecordS3Operation(ctx, "S3.UploadObject", time.Since(start).Seconds(),
+			attribute.String("bucket", s.cfg.EpubBucket),
+			attribute.String("s3.key", key))
+	}()
+
 	uploader := transfermanager.New(s.s3, func(o *transfermanager.Options) {
 		o.PartSizeBytes=10*1024*1024
 		o.Concurrency=5
@@ -70,7 +82,11 @@ func (s *S3Uploader) UploadConcurently(ctx context.Context) (chan ChunkObject,*s
 			for chItem := range channel {
 				item := chItem
 				log.Debug().Str("key", item.Key).Msg("Uploading chunk")
+				start := time.Now()
 				_, err := s.s3.PutObject(ctx,&s3.PutObjectInput{Key: &item.Key,Bucket:&s.cfg.ChunkBucket,Body:item.Reader})
+				otel.RecordS3Operation(ctx, "S3.PutObject", time.Since(start).Seconds(),
+					attribute.String("bucket", s.cfg.ChunkBucket),
+					attribute.String("s3.key", item.Key))
 				if err != nil {
 					log.Error().Err(err).Str("key", item.Key).Msg("Error uploading chunk to s3")
 				}

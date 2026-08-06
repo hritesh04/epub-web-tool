@@ -2,6 +2,7 @@ import cheerio, { load } from "cheerio";
 import { translate as tr } from "googletrans";
 import fs from "fs";
 import xml2js from "xml2js";
+import { logger } from "./logger";
 
 export async function translateHTML(path:string,html:string):Promise<string> {
     const $ = load(html);
@@ -39,7 +40,7 @@ export async function translateHTML(path:string,html:string):Promise<string> {
       }
     });
     
-    console.log(`  Found ${textsToTranslate.length} text segments to translate on ${path}`);
+    logger.info({ count: textsToTranslate.length, path }, `Found text segments to translate on ${path}`);
     
     if (textsToTranslate.length === 0) {
       $("[lang]").attr("lang", "en");
@@ -57,7 +58,7 @@ export async function translateHTML(path:string,html:string):Promise<string> {
       const batchNum = Math.floor(i / batchSize) + 1;
       const totalBatches = Math.ceil(textsToTranslate.length / batchSize);
       
-      console.log(`    Translating batch ${batchNum}/${totalBatches} (${batch.length} items)...`);
+      logger.info({ batch: batchNum, totalBatches }, `Translating batch ${batchNum}/${totalBatches} (${batch.length} items)...`);
       
       const batchResults = await translateBatch(batch);
       translatedTexts.push(...batchResults);
@@ -68,7 +69,7 @@ export async function translateHTML(path:string,html:string):Promise<string> {
       }
     }
     
-    console.log(` Applying ${translatedTexts.length} translations...`);
+    logger.info({ count: translatedTexts.length }, "Applying translations...");
     
     // Apply translations back to elements
     translatedTexts.forEach((translatedText, i) => {
@@ -116,7 +117,7 @@ export async function translateNCX(content:string): Promise<string> {
   const navPoints = result.ncx.navMap[0].navPoint;
   collect(navPoints);
 
-  console.log(`Found ${textsToTranslate.length} TOC entries`);
+  logger.info({ count: textsToTranslate.length }, "Found TOC entries");
 
   if (textsToTranslate.length === 0) {
     return content;
@@ -137,7 +138,7 @@ export async function translateNCX(content:string): Promise<string> {
     }
   }
 
-  console.log(`Applying ${translatedTexts.length} translations`);
+  logger.info({ count: translatedTexts.length }, "Applying translations");
 
   translatedTexts.forEach((t, i) => {
     textRefs[i][0] = t;
@@ -162,7 +163,7 @@ async function translateBatch(textArray:string[], retries = 5):Promise<string[]>
           const result = await tr(texts, {to: "en"});
           return result.textArray;
         } catch (err:any) {
-          console.error(`Failed to translate single item:`, err.message);
+          logger.error({ err }, `Failed to translate single item: ${err.message}`);
           return texts;
         }
       }
@@ -171,14 +172,14 @@ async function translateBatch(textArray:string[], retries = 5):Promise<string[]>
         const result = await tr(texts, {to: "en"});
         return result.textArray;
       } catch (err:any) {
-        console.error(`      Translation attempt ${attempt + 1} failed for batch of ${texts.length}:`, err.message);
+        logger.error({ err, attempt: attempt + 1, batchSize: texts.length }, `Translation attempt ${attempt + 1} failed for batch of ${texts.length}: ${err.message}`);
         
         if (attempt < retries - 1) {
           const midpoint = Math.ceil(texts.length / 2);
           const firstHalf = texts.slice(0, midpoint);
           const secondHalf = texts.slice(midpoint);
           
-          console.log(`    Subdividing batch: ${texts.length} → ${firstHalf.length} + ${secondHalf.length}`);
+          logger.info({ from: texts.length, to: `${firstHalf.length} + ${secondHalf.length}` }, "Subdividing batch");
           
           await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
           
@@ -189,7 +190,7 @@ async function translateBatch(textArray:string[], retries = 5):Promise<string[]>
           
           return [...firstResults, ...secondResults];
         } else {
-          console.warn(`  Failed to translate batch after ${retries} attempts, returning original texts`);
+          logger.warn({ retries }, "Failed to translate batch, returning original texts");
           return texts;
         }
       }
