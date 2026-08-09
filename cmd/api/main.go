@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/db"
+	"github.com/hritesh04/epub-web-tool/internal/drive"
 	"github.com/hritesh04/epub-web-tool/internal/handler"
 	"github.com/hritesh04/epub-web-tool/internal/middleware"
 	"github.com/hritesh04/epub-web-tool/internal/otel"
@@ -35,20 +36,20 @@ func main() {
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	if cfg.Env == "development" {
 		log.Logger = log.Output(zerolog.MultiLevelWriter(zerolog.ConsoleWriter{Out: os.Stdout}, otel.NewZerologWriter())).With().
-        Timestamp().
-        Caller().
-        Logger()
+			Timestamp().
+			Caller().
+			Logger()
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		log.Logger = log.Output(otel.NewZerologWriter()).
-		With().
-        Timestamp().
-        Caller().
-        Logger()
+			With().
+			Timestamp().
+			Caller().
+			Logger()
 	}
 
 	// Initialize OTel for Traces, Metrics, and Logs
-	otelShutdown, err := otel.InitOTel(ctx, cfg.OpenObserve,"epub-web-tool-api")
+	otelShutdown, err := otel.InitOTel(ctx, cfg.OpenObserve, "epub-web-tool-api")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize OTel")
 	}
@@ -96,25 +97,30 @@ func main() {
 
 	store := s3.NewPresignUploadS3Client(cfg.S3)
 	publisher := producer.NewTranslationRequestPublisher(cfg.Queue)
+	driveService, err := drive.NewService(cfg.Google.DriveAPIKey)
+	if err != nil {
+		log.Warn().Err(err).Msg("Google Drive import will be unavailable")
+	}
 	user := handler.NewUserHandler(userRepo)
-	epub := handler.NewEpubHandler(epubRepo, store, publisher)
+	epub := handler.NewEpubHandler(epubRepo, store, publisher, driveService)
 	chunk := handler.NewChunkHandler(chunkRepo, epubRepo)
 
 	r.GET("/health", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK,gin.H{"success":true})
+		ctx.JSON(http.StatusOK, gin.H{"success": true})
 	})
 	r.POST("/signin", user.SignIn)
 	r.POST("/signup", user.SignUp)
 	r.GET("/refresh", user.Refresh)
 
 	protected := r.Group("/")
-	
+
 	protected.Use(middleware.Auth())
 	protected.POST("/signout", user.SignOut)
 	protected.GET("/auth", user.Auth)
 	protected.GET("/epubs", epub.GetUserEpub)
 	protected.DELETE("/epub/:id", epub.DeleteEpub)
 	protected.GET("/upload", epub.GetPresignPostURL)
+	protected.POST("/upload/drive", epub.ImportFromDrive)
 	protected.POST("/upload/:uid/:id", epub.FinishUpload)
 	protected.GET("/progress/:id", chunk.Progress)
 	protected.GET("/download/:id", epub.GetPresignTranslatedEpubLink)

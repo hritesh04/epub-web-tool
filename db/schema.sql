@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS epubs (
     user_id     TEXT NOT NULL REFERENCES users(id),
     chunk_count INTEGER NOT NULL DEFAULT 0,
     object_key  TEXT NOT NULL,
+    source      TEXT NOT NULL DEFAULT 'upload',
+    drive_link  TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

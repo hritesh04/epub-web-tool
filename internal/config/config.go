@@ -9,31 +9,31 @@ import (
 )
 
 type S3 struct {
-	Endpoint string
-	Region string
-	Key string
-	Password string
-	EpubBucket string
-	ChunkBucket string
+	Endpoint          string
+	Region            string
+	Key               string
+	Password          string
+	EpubBucket        string
+	ChunkBucket       string
 	TranslationBucket string
 }
 
 type Queue struct {
-	Endpoint string
-	User string
-	Password string
-	ChunkerQueue string
+	Endpoint         string
+	User             string
+	Password         string
+	ChunkerQueue     string
 	TranslationQueue string
-	ZipQueue string
+	ZipQueue         string
 }
 
 func (q *Queue) URI() string {
-	return fmt.Sprintf("amqp://%s:%s@%s",q.User,q.Password,q.Endpoint)
+	return fmt.Sprintf("amqp://%s:%s@%s", q.User, q.Password, q.Endpoint)
 }
 
 type OpenObserve struct {
-	Endpoint string
-	AuthToken string
+	Endpoint     string
+	AuthToken    string
 	Organization string
 }
 
@@ -41,13 +41,18 @@ type DB struct {
 	Url string
 }
 
+type Google struct {
+	DriveAPIKey string
+}
+
 type Config struct {
-	Env  string
-	Port string
-	DB DB
-	S3 S3
-	Queue Queue
+	Env         string
+	Port        string
+	DB          DB
+	S3          S3
+	Queue       Queue
 	OpenObserve OpenObserve
+	Google      Google
 }
 
 func LoadConfig() Config {
@@ -62,12 +67,12 @@ func LoadConfig() Config {
 	}
 	cfg.Port = os.Getenv("PORT")
 	if cfg.Port == "" {
-		cfg.Port="3000"
+		cfg.Port = "3000"
 	}
 
 	cfg.DB.Url = os.Getenv("DATABASE_URL")
-	if cfg.DB.Url == ""{
-		cfg.DB.Url="postgresql://postgres:postgres@localhost:5432/postgres"
+	if cfg.DB.Url == "" {
+		cfg.DB.Url = "postgresql://postgres:postgres@localhost:5432/postgres"
 	}
 
 	cfg.S3.Endpoint = os.Getenv("S3_ENDPOINT")
@@ -79,27 +84,27 @@ func LoadConfig() Config {
 	cfg.S3.TranslationBucket = os.Getenv("S3_TRANSLATION_BUCKET")
 
 	if cfg.S3.Endpoint == "" {
-		cfg.S3.Endpoint="http://localhost:9000"
+		cfg.S3.Endpoint = "http://localhost:9000"
 	}
 	if cfg.S3.Key == "" {
-		cfg.S3.Key="minioadmin"
+		cfg.S3.Key = "minioadmin"
 	}
 	if cfg.S3.Password == "" {
-		cfg.S3.Password="minioadmin"
+		cfg.S3.Password = "minioadmin"
 	}
 	if cfg.S3.Region == "" {
-		cfg.S3.Region="us-west-2"
+		cfg.S3.Region = "us-west-2"
 	}
 	if cfg.S3.EpubBucket == "" {
-		cfg.S3.EpubBucket="epubs"
+		cfg.S3.EpubBucket = "epubs"
 	}
 	if cfg.S3.ChunkBucket == "" {
-		cfg.S3.ChunkBucket="chunks"
+		cfg.S3.ChunkBucket = "chunks"
 	}
 	if cfg.S3.TranslationBucket == "" {
-		cfg.S3.TranslationBucket="translations"
+		cfg.S3.TranslationBucket = "translations"
 	}
-	
+
 	cfg.Queue.Endpoint = os.Getenv("QUEUE_HOST")
 	cfg.Queue.User = os.Getenv("QUEUE_USER")
 	cfg.Queue.Password = os.Getenv("QUEUE_PASSWORD")
@@ -107,28 +112,27 @@ func LoadConfig() Config {
 	cfg.Queue.TranslationQueue = os.Getenv("QUEUE_TRANSLATION")
 	cfg.Queue.ZipQueue = os.Getenv("QUEUE_ZIP")
 
-
 	if cfg.Queue.Endpoint == "" {
-		cfg.Queue.Endpoint="localhost:5672"
+		cfg.Queue.Endpoint = "localhost:5672"
 	}
 	if cfg.Queue.User == "" {
-		cfg.Queue.User="user"
+		cfg.Queue.User = "user"
 	}
 	if cfg.Queue.Password == "" {
-		cfg.Queue.Password="password"
+		cfg.Queue.Password = "password"
 	}
 	if cfg.Queue.ChunkerQueue == "" {
-		cfg.Queue.ChunkerQueue="chunker"
+		cfg.Queue.ChunkerQueue = "chunker"
 	}
 	if cfg.Queue.TranslationQueue == "" {
-		cfg.Queue.TranslationQueue="translation"
+		cfg.Queue.TranslationQueue = "translation"
 	}
 	if cfg.Queue.ZipQueue == "" {
-		cfg.Queue.ZipQueue="zip"
+		cfg.Queue.ZipQueue = "zip"
 	}
 
 	cfg.OpenObserve.Endpoint = os.Getenv("OPENOBSERVE_ENDPOINT")
-	cfg.OpenObserve.AuthToken = os.Getenv("OPENOBSERVE_AUTH_TOKEN") 
+	cfg.OpenObserve.AuthToken = os.Getenv("OPENOBSERVE_AUTH_TOKEN")
 	cfg.OpenObserve.Organization = os.Getenv("OPENOBSERVE_ORGANIZATION")
 
 	if cfg.OpenObserve.Endpoint == "" {
@@ -137,6 +141,8 @@ func LoadConfig() Config {
 	if cfg.OpenObserve.Organization == "" {
 		cfg.OpenObserve.Organization = "default"
 	}
+
+	cfg.Google.DriveAPIKey = os.Getenv("GDRIVE_API_KEY")
 
 	return cfg
 }

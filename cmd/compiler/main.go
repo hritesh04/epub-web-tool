@@ -13,6 +13,7 @@ import (
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/db"
+	"github.com/hritesh04/epub-web-tool/internal/drive"
 	"github.com/hritesh04/epub-web-tool/internal/epub"
 	"github.com/hritesh04/epub-web-tool/internal/otel"
 	"github.com/hritesh04/epub-web-tool/internal/queue/consumer"
@@ -21,7 +22,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func main(){
+func main() {
 	ctx := context.Background()
 	cfg := config.LoadConfig()
 
@@ -35,7 +36,7 @@ func main(){
 		log.Logger = log.Output(otel.NewZerologWriter())
 	}
 
-	shutdown,err := otel.InitLogger(ctx,cfg.OpenObserve,"epub-web-tool-compiler")
+	shutdown, err := otel.InitLogger(ctx, cfg.OpenObserve, "epub-web-tool-compiler")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize OTel")
 	}
@@ -54,20 +55,24 @@ func main(){
 	downloder := s3.NewDownloader(cfg.S3)
 	uploader := s3.NewUploader(cfg.S3)
 	remover := s3.NewObjectRemover(cfg.S3)
-	zipQueue:= consumer.NewRabbitMQZipReqConsumer(cfg.Queue)
+	driveService, err := drive.NewService(cfg.Google.DriveAPIKey)
+	if err != nil {
+		log.Warn().Err(err).Msg("Google Drive import will be unavailable")
+	}
+	zipQueue := consumer.NewRabbitMQZipReqConsumer(cfg.Queue)
 	epubRepo := repository.NewEpubRepository(database)
 	compiler := epub.NewCompiler(downloder)
 
-	msg,data,err := zipQueue.Consume(ctx)
+	msg, data, err := zipQueue.Consume(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Error consuming from queue")
 		return
 	}
-	info, err := epubRepo.AlreadyCompiling(ctx,data.EpubID)
+	info, err := epubRepo.AlreadyCompiling(ctx, data.EpubID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			log.Warn().Err(err).Msg("Error checking epub compilation status: no rows found")
-			return 
+			return
 		}
 		log.Error().Err(err).Str("epub_id", data.EpubID).Msg("Error checking if compiling request is processed")
 		msg.Requeue(ctx)
@@ -80,11 +85,27 @@ func main(){
 		return
 	}
 
-	file, err := downloder.Download(ctx,info.ObjectKey)
-	if err != nil {
-		log.Error().Err(err).Str("object_key", info.ObjectKey).Msg("Error downloading object")
-		msg.Requeue(ctx)
-		return
+	var file *os.File
+	if info.Source == "gdrive" {
+		fileID, err := drive.ExtractFileID(info.DriveLink)
+		if err != nil {
+			log.Error().Err(err).Str("epub_id", data.EpubID).Msg("Error extracting drive file id")
+			msg.Requeue(ctx)
+			return
+		}
+		file, err = driveService.Download(ctx, fileID, drive.MaxSize)
+		if err != nil {
+			log.Error().Err(err).Str("epub_id", data.EpubID).Msg("Error downloading source from google drive")
+			msg.Requeue(ctx)
+			return
+		}
+	} else {
+		file, err = downloder.Download(ctx, info.ObjectKey)
+		if err != nil {
+			log.Error().Err(err).Str("object_key", info.ObjectKey).Msg("Error downloading object")
+			msg.Requeue(ctx)
+			return
+		}
 	}
 
 	stats, err := file.Stat()
@@ -97,22 +118,22 @@ func main(){
 	epubName := strings.TrimSuffix(stats.Name(), filepath.Ext(stats.Name()))
 	extractPath := filepath.Join(os.TempDir(), epubName)
 
-	keys, err := compiler.Unzip(info.Id,filepath.Join(os.TempDir(),stats.Name()), extractPath)
+	keys, err := compiler.Unzip(info.Id, filepath.Join(os.TempDir(), stats.Name()), extractPath)
 	if err != nil {
 		log.Error().Err(err).Msg("Error unzipping epub")
 		msg.Requeue(ctx)
 		return
 	}
 	file.Close()
-	if err := downloder.DownloadTranslatedChunks(ctx,info.Id,extractPath);err != nil {
+	if err := downloder.DownloadTranslatedChunks(ctx, info.Id, extractPath); err != nil {
 		log.Error().Err(err).Msg("Error downloading translated chunks")
 	}
 
-	newEpub := filepath.Join(os.TempDir(),epubName+"_translated.epub")
+	newEpub := filepath.Join(os.TempDir(), epubName+"_translated.epub")
 
 	log.Info().Str("path", newEpub).Msg("Creating new translated epub")
 
-	if err := compiler.ZipToEpub(extractPath,newEpub);err != nil {
+	if err := compiler.ZipToEpub(extractPath, newEpub); err != nil {
 		log.Error().Err(err).Msg("Error zipping translated chunks")
 		msg.Requeue(ctx)
 		return
@@ -124,23 +145,23 @@ func main(){
 		return
 	}
 	log.Info().Str("path", newEpub).Msg("Uploading new translated epub")
-	if err := uploader.UploadFile(ctx,info.ObjectKey,newEpubFile); err != nil {
+	if err := uploader.UploadFile(ctx, info.ObjectKey, newEpubFile); err != nil {
 		log.Error().Err(err).Msg("Error uploading new epub")
 		msg.Requeue(ctx)
 		return
 	}
 	newEpubFile.Close()
-	if err := remover.RemoveChunksAndTranslatedChunks(ctx,keys); err != nil {
+	if err := remover.RemoveChunksAndTranslatedChunks(ctx, keys); err != nil {
 		log.Error().Err(err).Msg("Error removing chunks and translated chunks")
 		msg.Requeue(ctx)
 		return
 	}
 	log.Info().Str("path", newEpub).Msg("Removing translated epub")
-	if err := os.Remove(newEpub);err != nil {
+	if err := os.Remove(newEpub); err != nil {
 		log.Error().Err(err).Msg("Error removing translated epub")
 		msg.Requeue(ctx)
 	}
-	if err := epubRepo.UpdateStatus(ctx,info.Id,"completed"); err != nil {
+	if err := epubRepo.UpdateStatus(ctx, info.Id, "completed"); err != nil {
 		log.Error().Err(err).Msg("Error updating epub status")
 	}
 	msg.Accept(ctx)

@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import path from "path";
-dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
+dotenv.config();
 
 export type s3Config = {
   endpoint: string;

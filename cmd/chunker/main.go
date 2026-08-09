@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"time"
-
 	"os"
+	"time"
 
 	"github.com/hritesh04/epub-web-tool/internal/config"
 	"github.com/hritesh04/epub-web-tool/internal/db"
+	"github.com/hritesh04/epub-web-tool/internal/drive"
 	"github.com/hritesh04/epub-web-tool/internal/epub"
 	"github.com/hritesh04/epub-web-tool/internal/otel"
+	"github.com/hritesh04/epub-web-tool/internal/queue"
 	"github.com/hritesh04/epub-web-tool/internal/queue/consumer"
 	"github.com/hritesh04/epub-web-tool/internal/queue/producer"
 	"github.com/hritesh04/epub-web-tool/internal/repository"
@@ -19,7 +20,7 @@ import (
 	"github.com/rs/zerolog/pkgerrors"
 )
 
-func main(){
+func main() {
 	ctx := context.Background()
 	cfg := config.LoadConfig()
 
@@ -32,8 +33,8 @@ func main(){
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		log.Logger = log.Output(otel.NewZerologWriter())
 	}
-	
-	shutdown, err := otel.InitLogger(ctx,cfg.OpenObserve,"epub-web-tool-chunker")
+
+	shutdown, err := otel.InitLogger(ctx, cfg.OpenObserve, "epub-web-tool-chunker")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize OTel")
 	}
@@ -45,7 +46,7 @@ func main(){
 		}
 	}()
 
-	database,err := db.New(cfg.DB.Url)
+	database, err := db.New(cfg.DB.Url)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error creating db connection")
 	}
@@ -53,17 +54,21 @@ func main(){
 	epubRepo := repository.NewEpubRepository(database)
 	downloader := s3.NewDownloader(cfg.S3)
 	uploader := s3.NewUploader(cfg.S3)
+	driveService, err := drive.NewService(cfg.Google.DriveAPIKey)
+	if err != nil {
+		log.Warn().Err(err).Msg("Google Drive import will be unavailable")
+	}
 	translationReq := consumer.NewTranslationReqConsumer(cfg.Queue)
 	chunkPublisher := producer.NewChunkPublisher(cfg.Queue)
-	chunker := epub.NewChunker(chunkRepo,uploader)
+	chunker := epub.NewChunker(chunkRepo, uploader)
 
 	msg, data, err := translationReq.Consume(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Error consuming from queue")
 		return
 	}
-	
-	processed,err := epubRepo.AlreadyProcessed(ctx,data.EpubID); 
+
+	processed, err := epubRepo.AlreadyProcessed(ctx, data.EpubID)
 	if err != nil {
 		log.Error().Err(err).Str("epub_id", data.EpubID).Msg("Error checking if translation request is processed")
 		msg.Requeue(ctx)
@@ -77,14 +82,14 @@ func main(){
 		return
 	}
 
-	file, err := downloader.Download(ctx,data.Key)
+	file, err := downloadSourceFile(ctx, data, downloader, driveService)
 	if err != nil {
-		log.Error().Err(err).Str("key", data.Key).Msg("Error downloading object")
+		log.Error().Err(err).Str("key", data.Key).Str("source", data.Source).Msg("Error downloading source file")
 		msg.Requeue(ctx)
 		return
 	}
 
-	chunks, err := chunker.Chunk(ctx,file,data)
+	chunks, err := chunker.Chunk(ctx, file, data)
 	log.Info().Int("total_chunks", len(chunks)).Msg("Chunking result")
 	if err != nil {
 		log.Error().Err(err).Str("file", file.Name()).Msg("Error chunking epub")
@@ -95,20 +100,36 @@ func main(){
 	if len(chunks) == 0 {
 		msg.Accept(ctx)
 		log.Info().Str("file", file.Name()).Msg("No chunks found")
-		epubRepo.UpdateStatus(ctx,data.EpubID,"finished")
+		epubRepo.UpdateStatus(ctx, data.EpubID, "finished")
 		return
 	}
 
-	if err := epubRepo.UpdateChunkCount(ctx,data.EpubID,len(chunks)); err != nil {
+	if err := epubRepo.UpdateChunkCount(ctx, data.EpubID, len(chunks)); err != nil {
 		log.Error().Err(err).Msg("Error updating chunk count")
 		msg.Requeue(ctx)
 		return
 	}
 
-	if err := chunkPublisher.PublishFileChunks(ctx,chunks); err != nil {
+	if err := chunkPublisher.PublishFileChunks(ctx, chunks); err != nil {
 		log.Error().Err(err).Msg("Error publishing translation chunks")
 		msg.Requeue(ctx)
 		return
 	}
 	msg.Accept(ctx)
+}
+
+func downloadSourceFile(ctx context.Context, data queue.TranslationMsg, downloader *s3.S3Downloader, driveService *drive.Service) (*os.File, error) {
+	if data.Source != "gdrive" {
+		return downloader.Download(ctx, data.Key)
+	}
+
+	fileID, err := drive.ExtractFileID(data.DriveLink)
+	if err != nil {
+		return nil, err
+	}
+	file, err := driveService.Download(ctx, fileID, drive.MaxSize)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }
